@@ -10,13 +10,13 @@ def agent_trigger(comm_world: MPI.Intracomm, rank: int, sigterm: str = "STOP") -
     """
     Agent activator process (processes 3 to M) simulates the activity of a user.
     In its current state it takes care of receiving a user_id from agent_process_manager,
-    Generates a random number 
+    Generates a random number
     Returns: a tuple (User object, process rank).
 
     Args:
         comm (MPI.COMM_WORLD): communication context between processes
         rank (int): rank of the process
-    
+
     """
 
     while True:
@@ -25,8 +25,8 @@ def agent_trigger(comm_world: MPI.Intracomm, rank: int, sigterm: str = "STOP") -
         user = comm_world.recv(source=1)
         if user == sigterm:
             break
-        user.create_post(
-            str(user.user_id) + "_" + str(len(user.shared_messages) + 1), user.is_shadow
+        user.perform_action(
+            str(user.user_id) + "_" + str(user.n_actions), user.is_shadow
         )
         # time.sleep(0.01)
         comm_world.send((user, rank), dest=1)

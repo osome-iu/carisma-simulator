@@ -74,7 +74,16 @@ def file_manager(folder_path, file_path) -> None:
         csv_out = csv.writer(out)
         if os.stat(file_path).st_size == 0:
             csv_out.writerow(
-                ["user_id", "message_id", "quality", "appeal", "clock_time"]
+                [
+                    "user_id",
+                    "message_id",
+                    "quality",
+                    "appeal",
+                    "reshared_id",
+                    "reshared_user_id",
+                    "reshared_original_id",
+                    "clock_time",
+                ]
             )
 
 

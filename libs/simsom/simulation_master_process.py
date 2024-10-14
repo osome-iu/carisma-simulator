@@ -6,6 +6,7 @@ import random
 from simtools import get_scores_below_threshold
 from mpi4py import MPI
 import numpy as np
+import time
 
 
 class ClockManager:
@@ -84,7 +85,7 @@ def simulation_master(
                 # !! Do not change this, sigterm needs to be sent in the correct order
                 for i in range(4, size):
                     comm.send(sigterm, dest=i)
-                comm.send(sigterm, dest=1)
+                # comm.send(sigterm, dest=1)
                 comm.send(sigterm, dest=2)
                 break
         else:
@@ -97,7 +98,7 @@ def simulation_master(
                 # !! Do not change this, sigterm needs to be sent in the correct order
                 for i in range(4, size):
                     comm.send(sigterm, dest=i)
-                comm.send(sigterm, dest=1)
+                # comm.send(sigterm, dest=1)
                 comm.send(sigterm, dest=2)
                 break
 

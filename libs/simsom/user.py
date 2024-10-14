@@ -4,9 +4,11 @@ all the things we need to work with it and its friends.
 Users are object used in the main_sim.py as nodes of the network.
 """
 
+from collections import deque
+import time
+import pandas as pd
 import random
 import message
-from collections import deque
 
 
 class User:
@@ -23,20 +25,60 @@ class User:
         self.user_class = user_class
         user_description = []
         self.shared_messages = []
+        self.reshared_messages = []
+        self.n_actions = 0
         self.is_suspended = False
         self.is_shadow = False
         self.user_feed = deque(maxlen=10)
         self.last_message = None
         self.friends = friends
         self.followers = followers
+        self.mu = 0.5
 
         for _ in range(random.randrange(1, 6)):
             user_description.append(random.randrange(0, 5))
         self.user_description = list(set(user_description))
 
-    def create_post(
+    def perform_action(
         self,
-        message_id: int,
+        message_id: str,
+        is_shadow: bool,
+        quality_params: tuple = (0.5, 0.15, 0, 1),
+    ) -> bool:
+        if len(self.user_feed) > 0 and random.random() > self.mu:
+            self.reshare_message(message_id, is_shadow)
+        else:
+            self.post_message(message_id, is_shadow, quality_params)
+
+    def reshare_message(
+        self,
+        message_id: str,
+        is_shadow: bool,
+    ) -> None:
+        target = random.sample(list(self.user_feed), 1)[0]
+        message_reshared = message.Message(
+            id=message_id,
+            user_id=self.user_id,
+            quality_params=None,
+            topic=target.topic,
+            is_shadow=is_shadow,
+        )
+        message_reshared.quality = target.quality
+        message_reshared.appeal = target.appeal
+        if pd.notna(target.reshared_id):
+            message_reshared.reshared_original_id = target.reshared_original_id
+            message_reshared.reshared_id = target.id
+        else:
+            message_reshared.reshared_id = target.id
+            message_reshared.reshared_original_id = target.id
+        message_reshared.reshared_user_id = target.user_id
+        self.reshared_messages.append(message_reshared)
+        self.n_actions += 1
+        self.last_message = message_reshared
+
+    def post_message(
+        self,
+        message_id: str,
         is_shadow: bool,
         quality_params: tuple = (0.5, 0.15, 0, 1),
     ) -> None:
@@ -45,7 +87,7 @@ class User:
         message in a specific position
 
         Args:
-            message_id (int): message_id from the main_sim, is a combination of
+            message_id (str): message_id from the main_sim, is a combination of
             user_id and a specific index
             quality_params (tuple, optional): params to get the quality from the beta.
             Defaults to (0.5, 0.15, 0, 1).
@@ -58,6 +100,7 @@ class User:
             quality_params=quality_params,
         )
         self.shared_messages.append(message_created)
+        self.n_actions += 1
         self.last_message = message_created
 
     def add_clock(self, time: float):
@@ -74,10 +117,13 @@ class User:
             [
                 f"User id: {self.user_id}",
                 f"- Number of shared: {len(self.shared_messages)}",
+                f"- Number of reshared: {len(self.reshared_messages)}",
+                f"- Number of actions: {self.n_actions}",
                 f"- Shadow status:  {self.is_shadow}",
                 f"- Suspension status: {self.is_suspended}",
                 f"- Feed: {self.user_feed}",
                 f"- Friends: {self.friends}",
+                f"- Followers: {self.followers}",
                 f"- Description: {self.user_description}",
             ]
         )
