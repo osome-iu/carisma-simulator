@@ -5,7 +5,6 @@ Users are object used in the main_sim.py as nodes of the network.
 """
 
 from collections import deque
-import time
 import pandas as pd
 import random
 import message

@@ -4,18 +4,14 @@ Put a module docstring here :)
 # usage: mpiexec -n 10 python main_sim.py --n_user 50 --stop_iteration 100
 """
 
+from mpi4py import MPI
 import argparse
 import time
-from mpi4py import MPI
 
 # Projet import
 from simtools import init_network, file_manager
-from simulation_master_process import simulation_master
-from message_buffer_process import message_buffer
-from data_manager_process import data_manager
-from agent_trigger_process import agent_trigger
-from convergence_manager import convergence
 
+# Do we need this?
 PROCESSES = {
     0: "convergence_manager",
     1: "simulation_master",
@@ -63,22 +59,51 @@ def run_simulation():
             print("Please run again with at least 5 processes")
     else:
         if rank == 0:
+            from convergence_manager import convergence
+
             file_manager(FOLDER_PATH, FILE_PATH)
-            convergence(comm, 100, FILE_PATH, args.stop_iteration, 0.01)
+            convergence(comm, rank, 100, FILE_PATH, args.stop_iteration, 0.01)
 
         if rank == 1:
+            from simulation_master_process import simulation_master
+
             simulation_master(
-                comm, size, users, args.stop_iteration, sigterm=TERMINATION_SIGNAL
+                comm,
+                rank,
+                size,
+                users,
+                args.stop_iteration,
+                sigterm=TERMINATION_SIGNAL,
             )
 
         if rank == 2:
-            message_buffer(comm, args.stop_iteration, sigterm=TERMINATION_SIGNAL)
+            from message_buffer_process import message_buffer
+
+            message_buffer(
+                comm,
+                rank,
+                args.stop_iteration,
+                sigterm=TERMINATION_SIGNAL,
+            )
 
         if rank == 3:
-            data_manager(comm, file_path=FILE_PATH, sigterm=TERMINATION_SIGNAL)
+            from data_manager_process import data_manager
+
+            data_manager(
+                comm,
+                rank,
+                file_path=FILE_PATH,
+                sigterm=TERMINATION_SIGNAL,
+            )
 
         if rank >= 4:
-            agent_trigger(comm, rank, sigterm=TERMINATION_SIGNAL)
+            from agent_handler_process import agent_handler
+
+            agent_handler(
+                comm,
+                rank,
+                sigterm=TERMINATION_SIGNAL,
+            )
 
 
 if __name__ == "__main__":

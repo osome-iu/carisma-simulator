@@ -5,10 +5,13 @@ Process that handles convergence if the maximum number of iterations is not spec
 import pandas as pd
 import numpy as np
 from mpi4py import MPI
+import datetime
+import time
 
 
 def convergence(
-    comm: MPI.COMM_WORLD,
+    comm: MPI.Intracomm,
+    rank: int,
     threshold: int,
     FILE_PATH: str,
     stop_iteration: int,
@@ -22,6 +25,11 @@ def convergence(
         threshold (int): sliding window size for quality analysis
         FILE_PATH (str): path to the file where the activities are saved
     """
+
+    log_msg = f"[{str(datetime.datetime.now())}] -> Running CONVERGENCE MANAGER process @ RANK {rank}..."
+    print(log_msg, flush=True)
+    time.sleep(3)
+
     flag = True
     index = 0
     old_value = 10
@@ -38,3 +46,6 @@ def convergence(
                     break
                 index += threshold
                 old_value = new_value
+
+    log_msg = f"[{str(datetime.datetime.now())}] -> Closed CONVERGENCE MANAGER process @ RANK {rank}."
+    print(log_msg, flush=True)

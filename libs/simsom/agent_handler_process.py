@@ -1,12 +1,13 @@
 """
-Agent activator process.
+Agent handler process.
 """
 
-import time
 from mpi4py import MPI
+import time
+import datetime
 
 
-def agent_trigger(comm_world: MPI.Intracomm, rank: int, sigterm: str = "STOP") -> None:
+def agent_handler(comm_world: MPI.Intracomm, rank: int, sigterm: str = "STOP") -> None:
     """
     Agent activator process (processes 3 to M) simulates the activity of a user.
     In its current state it takes care of receiving a user_id from agent_process_manager,
@@ -18,6 +19,9 @@ def agent_trigger(comm_world: MPI.Intracomm, rank: int, sigterm: str = "STOP") -
         rank (int): rank of the process
 
     """
+    log_msg = f"[{str(datetime.datetime.now())}] -> Running AGENT HANDLER process @ RANK {rank}..."
+    print(log_msg, flush=True)
+    time.sleep(3)
 
     while True:
         # get user_id from agent_process_manager, check for termination and
@@ -30,3 +34,6 @@ def agent_trigger(comm_world: MPI.Intracomm, rank: int, sigterm: str = "STOP") -
         )
         # time.sleep(0.01)
         comm_world.send((user, rank), dest=1)
+
+    log_msg = f"[{str(datetime.datetime.now())}] -> Closed AGENT HANDLER process @ RANK {rank}."
+    print(log_msg, flush=True)

@@ -6,6 +6,7 @@ import random
 from simtools import get_scores_below_threshold
 from mpi4py import MPI
 import numpy as np
+import datetime
 import time
 
 
@@ -46,7 +47,8 @@ def propagate_message(user_index: int, users: list) -> None:
 
 
 def simulation_master(
-    comm: MPI.Intracomm,
+    comm_world: MPI.Intracomm,
+    rank: int,
     size: int,
     users: list,
     max_iteration: int,
@@ -66,6 +68,10 @@ def simulation_master(
         max_iteration (int): max number of iteration that the simulation does before it stops
     """
 
+    log_msg = f"[{str(datetime.datetime.now())}] -> Running SIMULATION MASTER process @ RANK {rank}..."
+    print(log_msg, flush=True)
+    time.sleep(3)
+
     # DEBUG
     banned = set()
     count = 0
@@ -74,7 +80,7 @@ def simulation_master(
     index = 0
     # get M-4 user_ids, send the name of the user user_ids[index] to the corresponding process
     for i in range(4, size):
-        comm.send(users[index], dest=i)
+        comm_world.send(users[index], dest=i)
         index += 1
         index = index % len(users)
 
@@ -84,26 +90,26 @@ def simulation_master(
             if count == max_iteration:
                 # !! Do not change this, sigterm needs to be sent in the correct order
                 for i in range(4, size):
-                    comm.send(sigterm, dest=i)
+                    comm_world.send(sigterm, dest=i)
                 # comm.send(sigterm, dest=1)
-                comm.send(sigterm, dest=2)
+                comm_world.send(sigterm, dest=2)
                 break
         else:
             status = MPI.Status()
-            flag = comm.Iprobe(source=0, status=status)
+            flag = comm_world.Iprobe(source=0, status=status)
             if flag:
                 data = np.empty(1, dtype="i")
-                req = comm.Irecv(data, source=0)  # non-blocking receive
+                req = comm_world.Irecv(data, source=0)  # non-blocking receive
                 req.Wait()
                 # !! Do not change this, sigterm needs to be sent in the correct order
                 for i in range(4, size):
-                    comm.send(sigterm, dest=i)
+                    comm_world.send(sigterm, dest=i)
                 # comm.send(sigterm, dest=1)
-                comm.send(sigterm, dest=2)
+                comm_world.send(sigterm, dest=2)
                 break
 
         # Blocking receive instead of waitany
-        user, real_rank = comm.recv(source=MPI.ANY_SOURCE)
+        user, real_rank = comm_world.recv(source=MPI.ANY_SOURCE)
         user.add_clock(clock.next_time())
         # example of how a policy could work:
         # send a request to process 0 (policy)
@@ -120,14 +126,17 @@ def simulation_master(
         users[user.user_index] = user
         propagate_message(user_index=user.user_index, users=users)
         # send the user action to process 1 (update queue manager)
-        comm.send(user.last_message, dest=2)
+        comm_world.send(user.last_message, dest=2)
         # trigger the process to generate a new action
         while users[index].is_suspended:
             banned.add(users[index].user_id)
             index += 1
             index = index % len(users)
             print(f"User {user.user_id} is banned")
-        comm.send(users[index], dest=real_rank)
+        comm_world.send(users[index], dest=real_rank)
         index += 1
         index = index % len(users)
         count += 1
+
+    log_msg = f"[{str(datetime.datetime.now())}] -> Closed SIMULATION MASTER process @ RANK {rank})."
+    print(log_msg, flush=True)
