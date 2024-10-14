@@ -44,7 +44,17 @@ class User:
         message_id: str,
         is_shadow: bool,
         quality_params: tuple = (0.5, 0.15, 0, 1),
-    ) -> bool:
+    ) -> None:
+        """function that is responsible for routing the action between new action and re-sharing.
+        The choice is made according to the mu parameter and the user's feed, which must contain at least one message
+
+        Args:
+            message_id (str): message_id from the main_sim, is a combination of
+            user_id and a specific index
+            is_shadow (bool): flag to check if the user is under shadow-ban
+            quality_params (tuple, optional): params to get the quality from the beta.
+            Defaults to (0.5, 0.15, 0, 1).
+        """
         if len(self.user_feed) > 0 and random.random() > self.mu:
             self.reshare_message(message_id, is_shadow)
         else:
@@ -55,6 +65,15 @@ class User:
         message_id: str,
         is_shadow: bool,
     ) -> None:
+        """function to reshare a message, a message is chosen at random within the user's feed.
+        A new message is created, taking the attributes (appeal and quality) of the old message,
+        the first reshare and the following parents (id and user_id) are kept track of.
+
+        Args:
+            message_id (str): message_id from the main_sim, is a combination of
+            user_id and a specific index
+            is_shadow (bool): flag to check if the user is under shadow-ban
+        """
         target = random.sample(list(self.user_feed), 1)[0]
         message_reshared = message.Message(
             id=message_id,
@@ -65,10 +84,12 @@ class User:
         )
         message_reshared.quality = target.quality
         message_reshared.appeal = target.appeal
+        # If it's not the first reshare we get the attributes
         if pd.notna(target.reshared_id):
             message_reshared.reshared_original_id = target.reshared_original_id
             message_reshared.reshared_id = target.id
         else:
+            # If it's the first reshare reshared_original_id and reshared_id are the same
             message_reshared.reshared_id = target.id
             message_reshared.reshared_original_id = target.id
         message_reshared.reshared_user_id = target.user_id
@@ -82,13 +103,14 @@ class User:
         is_shadow: bool,
         quality_params: tuple = (0.5, 0.15, 0, 1),
     ) -> None:
-        """function to create a message, since the feed of the user
+        """function to post a message, since the feed of the user
         has a specific size (e.g. 10) the module is used to place the
         message in a specific position
 
         Args:
             message_id (str): message_id from the main_sim, is a combination of
             user_id and a specific index
+            is_shadow (bool): flag to check if the user is under shadow-ban
             quality_params (tuple, optional): params to get the quality from the beta.
             Defaults to (0.5, 0.15, 0, 1).
         """
