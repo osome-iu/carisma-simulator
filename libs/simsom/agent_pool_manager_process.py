@@ -28,22 +28,22 @@ def run_agent_pool_manager(
     while True:
 
         # Get data from policy filter
-        agent_packs_batch = comm_world.recv(
+        user_packs_batch = comm_world.recv(
             source=rank_index["policy_filter"],
             status=status,
         )
 
         # Check for termination
-        if agent_packs_batch == "sigterm":
+        if user_packs_batch == "sigterm":
             break
 
         dispatch_requests = []
 
         # Dispatch all the agent packs
-        while agent_packs_batch:
+        while user_packs_batch:
 
             # Pick agent pack from the batch
-            agent_pack = agent_packs_batch.pop()
+            user_pack = user_packs_batch.pop()
 
             # Pick handler at random with replacement
             handler_rank = rnd.choice(agent_handlers_ranks)
@@ -52,7 +52,7 @@ def run_agent_pool_manager(
 
             # Non-blocking dispatch
             req = comm_world.isend(
-                agent_pack,
+                user_pack,
                 dest=handler_rank,
             )
 

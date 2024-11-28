@@ -22,6 +22,8 @@ For any questions, please contact us at:
 
 from mpi4py import MPI
 import sys
+import argparse
+import simtools
 
 
 # Configuration constants
@@ -33,12 +35,42 @@ RANK_INDEX = {
     "agent_handler": 4,
 }
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--n_user", type=int, default=20, help="Number of users simulated")
+
+parser.add_argument(
+    "--message_count_target",
+    type=int,
+    default=0,
+    help="Number of messages to be reached to stop the execution (Default 0, run with convergence method)",
+)
+
+parser.add_argument(
+    "--file_path",
+    type=str,
+    default=None,
+    help="Path of the file to import a real world network (Default build internal)",
+)
+
+args = parser.parse_args()
+
 
 def main():
 
     comm_world = MPI.COMM_WORLD
     size = comm_world.Get_size()
     rank = comm_world.Get_rank()
+
+    # Simulation contstraints (parametrize)
+    users = (
+        simtools.init_network(file=args.file_path)
+        if args.file_path
+        else simtools.init_network(net_size=args.n_user)
+    )
+    # for i in users:
+    #     print(i.uid)
+    #     print(i.post_per_day)
+    #     print("-----")
 
     if size < 5:
         if rank == 0:
@@ -49,7 +81,9 @@ def main():
 
         from data_manager_process import run_data_manager
 
-        run_data_manager(comm_world, rank, size, RANK_INDEX)
+        run_data_manager(
+            users, args.message_count_target, comm_world, rank, size, RANK_INDEX
+        )
 
     elif rank == RANK_INDEX["convergence_monitor"]:
 

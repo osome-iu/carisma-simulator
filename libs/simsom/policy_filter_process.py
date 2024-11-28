@@ -19,17 +19,17 @@ def run_policy_filter(
     while True:
 
         # Wait for a batch of (agents, in_messages) to process
-        agent_packs_batch = comm_world.recv(
+        user_packs_batch = comm_world.recv(
             source=rank_index["data_manager"], status=status
         )
 
-        processed_batch = agent_packs_batch  # Placeholder for future logic
+        processed_batch = user_packs_batch  # Placeholder for future logic
 
         # Redirect the processed batch to agent pool manager
         comm_world.send(processed_batch, dest=rank_index["agent_pool_manager"])
 
         # Check for termination signal
-        if agent_packs_batch == "sigterm":
+        if user_packs_batch == "sigterm":
             break
 
     print(f"Policy filter stop @ rank: {rank}")
