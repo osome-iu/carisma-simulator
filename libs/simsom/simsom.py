@@ -89,7 +89,9 @@ def main():
 
         from convergence_monitor_process import run_convergence_monitor
 
-        run_convergence_monitor(comm_world, rank, size, RANK_INDEX)
+        run_convergence_monitor(
+            comm_world, rank, RANK_INDEX, 100, args.message_count_target, 0.01
+        )
 
     elif rank == RANK_INDEX["policy_filter"]:
 

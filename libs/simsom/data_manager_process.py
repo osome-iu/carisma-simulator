@@ -7,10 +7,9 @@ import os
 import csv
 import random as rnd
 import copy
+import numpy as np
 from mpi4py import MPI
 from user import User
-from message import Message
-from view import View
 
 time_now = int(time.time())
 folder_path = f"files/{time_now}"
@@ -23,34 +22,33 @@ if os.path.isfile(file_path_activity):
     os.remove(file_path_activity)
 if os.path.isfile(file_path_passivity):
     os.remove(file_path_passivity)
-# with open(file_path, "w", newline="", encoding="utf-8") as out:
-out_act = open(file_path_activity, "w", newline="", encoding="utf-8")
-csv_out_act = csv.writer(out_act)
-if os.stat(file_path_activity).st_size == 0:
-    csv_out_act.writerow(
-        [
-            "user_id",
-            "message_id",
-            "quality",
-            "appeal",
-            "reshared_id",
-            "reshared_user_id",
-            "reshared_original_id",
-            "clock_time",
-        ]
-    )
+with open(file_path_activity, "w", newline="", encoding="utf-8") as out_act:
+    csv_out_act = csv.writer(out_act)
+    if os.stat(file_path_activity).st_size == 0:
+        csv_out_act.writerow(
+            [
+                "user_id",
+                "message_id",
+                "quality",
+                "appeal",
+                "reshared_id",
+                "reshared_user_id",
+                "reshared_original_id",
+                "clock_time",
+            ]
+        )
 
-out_pas = open(file_path_passivity, "w", newline="", encoding="utf-8")
-csv_out_pas = csv.writer(out_pas)
-if os.stat(file_path_passivity).st_size == 0:
-    csv_out_pas.writerow(
-        [
-            "user_id",
-            "action_id",
-            "message_id",
-            "message_user_id",
-        ]
-    )
+with open(file_path_passivity, "w", newline="", encoding="utf-8") as out_pas:
+    csv_out_pas = csv.writer(out_pas)
+    if os.stat(file_path_passivity).st_size == 0:
+        csv_out_pas.writerow(
+            [
+                "user_id",
+                "action_id",
+                "message_id",
+                "message_user_id",
+            ]
+        )
 
 
 class ClockManager:
@@ -126,8 +124,22 @@ def run_data_manager(
 
     # Batch processing
     message_count = 0
-    while message_count < message_count_target:
-
+    while True:
+        if message_count_target == 0:
+            flag = comm_world.Iprobe(
+                source=rank_index["convergence_monitor"], status=status
+            )
+            if flag:
+                data = np.empty(1, dtype="i")
+                req = comm_world.Irecv(
+                    data, source=rank_index["convergence_monitor"]
+                )  # non-blocking receive
+                req.Wait()
+                comm_world.send("sigterm", dest=rank_index["policy_filter"])
+                break
+        else:
+            if message_count >= message_count_target:
+                break
         batch_send_req = None
 
         # Unpicked agents count
@@ -193,10 +205,20 @@ def run_data_manager(
                     message_count += len(new_msgs)
 
                     # DEBUG #
-                    for m in new_msgs:
-                        csv_out_act.writerow(m.write_action())
-                    for a in passive_actions:
-                        csv_out_pas.writerow(a.write_action())
+                    # csv_out_act.writerow(m.write_action())
+                    with open(
+                        file_path_activity, "a", newline="", encoding="utf-8"
+                    ) as out_act:
+                        csv_out_act = csv.writer(out_act)
+                        for m in new_msgs:
+                            csv_out_act.writerow(m.write_action())
+                        # csv_out_pas.writerow(a.write_action())
+                    with open(
+                        file_path_passivity, "a", newline="", encoding="utf-8"
+                    ) as out_pas:
+                        csv_out_pas = csv.writer(out_pas)
+                        for a in passive_actions:
+                            csv_out_pas.writerow(a.write_action())
                     # msgs_store.append(
                     #     (
                     #         m.time,

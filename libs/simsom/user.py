@@ -81,6 +81,7 @@ class User:
             vid = "V" + str(self.view_counter) + "_" + self.uid
             v = View(vid=vid, uid=self.uid, parent_mid=msg.aid, parent_uid=msg.uid)
             passive_actions.append(v)
+            self.view_counter += 1
             if msg.appeal >= appeal_threshold:
                 target = msg
         if not target:
