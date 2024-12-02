@@ -67,10 +67,6 @@ def main():
         if args.file_path
         else simtools.init_network(net_size=args.n_user)
     )
-    # for i in users:
-    #     print(i.uid)
-    #     print(i.post_per_day)
-    #     print("-----")
 
     if size < 5:
         if rank == 0:
@@ -90,7 +86,7 @@ def main():
         from convergence_monitor_process import run_convergence_monitor
 
         run_convergence_monitor(
-            comm_world, rank, RANK_INDEX, 100, args.message_count_target, 0.01
+            comm_world, rank, RANK_INDEX, 100, args.message_count_target, 0.001
         )
 
     elif rank == RANK_INDEX["policy_filter"]:
