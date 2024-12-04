@@ -116,8 +116,8 @@ def init_files(
         if os.stat(file_path_activity).st_size == 0:
             csv_out_act.writerow(
                 [
-                    "user_id",
                     "message_id",
+                    "user_id",
                     "quality",
                     "appeal",
                     "reshared_id",
@@ -132,8 +132,8 @@ def init_files(
         if os.stat(file_path_passivity).st_size == 0:
             csv_out_pas.writerow(
                 [
-                    "user_id",
                     "action_id",
+                    "user_id",
                     "message_id",
                     "message_user_id",
                 ]

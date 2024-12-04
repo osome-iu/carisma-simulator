@@ -3,6 +3,8 @@ An agent receives inventory of messages (agent/user object) from the agent_pool_
 and post/repost messages that will be shown to their followers
 """
 
+import numpy as np
+import random
 from mpi4py import MPI
 
 
@@ -33,11 +35,23 @@ def run_agent(
             break
 
         # Unpack the agent + incoming messages
-        user, in_messages = user_pack
+        user, in_messages = user_pack  # in_messages: inventory
 
-        # in_messages: inventory
-        # Add in_messages to newsfeed
-        user.newsfeed = in_messages + user.newsfeed
+        # Sort messages and drop duplicates (reshare)
+        raw_messages = in_messages + user.newsfeed
+        sorted_messages = sorted(raw_messages, key=lambda x: x.time, reverse=True)
+        message_filter_dict = {}
+        nan_parents = []
+        for message in sorted_messages:
+            if message.reshared_original_id == np.nan:
+                nan_parents.append(message)
+            elif message.reshared_original_id not in message_filter_dict:
+                message_filter_dict[message.reshared_original_id] = message
+        new_newsfeed = list(message_filter_dict.values()) + nan_parents
+        new_newsfeed = sorted(new_newsfeed, key=lambda x: x.time, reverse=True)
+
+        # replace old newsfeed with filtered newsfeed
+        user.newsfeed = new_newsfeed
 
         # Do some actions
         new_msgs, passive_actions = user.make_actions()

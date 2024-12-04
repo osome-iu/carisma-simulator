@@ -40,19 +40,26 @@ class ClockManager:
 
 
 def batch_message_propagation(message_board: dict, user: User, messages: list):
+    """Propagate message into users feed
+
+    Args:
+        message_board (dict): contains UID: list of messages for the user
+        user (User): user that created the messages
+        messages (list): messages that has been created by the user
+    """
     # TODO: pls explain
     # Explanation: this code is a reminder for the high follower spreading problem (this implementation is a stub).
     # As the simulation size grow, users with lots of follower (power law) can require lot of time for spreading.
-    batch_size = 1000
-    for i in range(0, len(user.followers), batch_size):
-        follower_batch = user.followers[i : i + batch_size]
-        for m in messages:
-            for follower_uid in follower_batch:
-                message_board["u" + str(follower_uid)].append(copy.deepcopy(m))
-    # NOTE: an equivalent (and more simple) implementation could be:
-    # for follower_aid in agent.followers:
+    # batch_size = 1000
+    # for i in range(0, len(user.followers), batch_size):
+    #     follower_batch = user.followers[i : i + batch_size]
     #     for m in messages:
-    #         message_board[follower_aid].append(copy.deepcopy(m))
+    #         for follower_uid in follower_batch:
+    #             message_board["u" + str(follower_uid)].append(copy.deepcopy(m))
+    # # NOTE: an equivalent (and more simple) implementation could be:
+    for follower_uid in user.followers:
+        for m in messages:
+            message_board["u" + str(follower_uid)].append(copy.deepcopy(m))
 
 
 def run_data_manager(
@@ -177,14 +184,12 @@ def run_data_manager(
                         pbar.update(1)
 
                         # DEBUG #
-                        # csv_out_act.writerow(m.write_action())
                         with open(
                             file_path_activity, "a", newline="", encoding="utf-8"
                         ) as out_act:
                             csv_out_act = csv.writer(out_act)
                             for m in new_msgs:
                                 csv_out_act.writerow(m.write_action())
-                            # csv_out_pas.writerow(a.write_action())
                         with open(
                             file_path_passivity, "a", newline="", encoding="utf-8"
                         ) as out_pas:
