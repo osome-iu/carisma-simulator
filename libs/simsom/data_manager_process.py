@@ -3,7 +3,6 @@ The data manager is responsible for choosing Users to run, save on disk generate
 """
 
 import time
-import os
 import csv
 import random as rnd
 import copy
@@ -11,45 +10,12 @@ import numpy as np
 from tqdm import tqdm
 from mpi4py import MPI
 from user import User
+import simtools
 
 time_now = int(time.time())
 folder_path = f"files/{time_now}"
 file_path_activity = folder_path + "/activities.csv"
 file_path_passivity = folder_path + "/passivities.csv"
-
-if not os.path.exists(folder_path):
-    os.makedirs(folder_path)
-if os.path.isfile(file_path_activity):
-    os.remove(file_path_activity)
-if os.path.isfile(file_path_passivity):
-    os.remove(file_path_passivity)
-with open(file_path_activity, "w", newline="", encoding="utf-8") as out_act:
-    csv_out_act = csv.writer(out_act)
-    if os.stat(file_path_activity).st_size == 0:
-        csv_out_act.writerow(
-            [
-                "user_id",
-                "message_id",
-                "quality",
-                "appeal",
-                "reshared_id",
-                "reshared_user_id",
-                "reshared_original_id",
-                "clock_time",
-            ]
-        )
-
-with open(file_path_passivity, "w", newline="", encoding="utf-8") as out_pas:
-    csv_out_pas = csv.writer(out_pas)
-    if os.stat(file_path_passivity).st_size == 0:
-        csv_out_pas.writerow(
-            [
-                "user_id",
-                "action_id",
-                "message_id",
-                "message_user_id",
-            ]
-        )
 
 
 class ClockManager:
@@ -114,6 +80,9 @@ def run_data_manager(
 
     # Clock
     clock = ClockManager()
+
+    # Init files
+    simtools.init_files(folder_path, file_path_activity, file_path_passivity)
 
     # DEBUG #
     # msgs_store = []

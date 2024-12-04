@@ -5,9 +5,9 @@ Put here function that can be used by more than one process.
 
 import os
 import csv
-from user import User
 import random
 import igraph as ig
+from user import User
 
 MINIMUM_REQUIRED_ATTRIBS = {"uid", "utype", "postperday", "qualitydistr"}
 QUALITYDISTR = "(0.5, 0.15, 0, 1)"
@@ -93,3 +93,48 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
         )
         users.append(user_i)
     return users
+
+
+def init_files(
+    folder_path: str, file_path_activity: str, file_path_passivity: str
+) -> None:
+    """Generate empty files to persist actions
+
+    Args:
+        folder_path (str): path of the folder based on time.now() function
+        file_path_activity (str): path of the file that contains active actions
+        file_path_passivity (str): path of the file that contains passive actions
+    """
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    if os.path.isfile(file_path_activity):
+        os.remove(file_path_activity)
+    if os.path.isfile(file_path_passivity):
+        os.remove(file_path_passivity)
+    with open(file_path_activity, "w", newline="", encoding="utf-8") as out_act:
+        csv_out_act = csv.writer(out_act)
+        if os.stat(file_path_activity).st_size == 0:
+            csv_out_act.writerow(
+                [
+                    "user_id",
+                    "message_id",
+                    "quality",
+                    "appeal",
+                    "reshared_id",
+                    "reshared_user_id",
+                    "reshared_original_id",
+                    "clock_time",
+                ]
+            )
+
+    with open(file_path_passivity, "w", newline="", encoding="utf-8") as out_pas:
+        csv_out_pas = csv.writer(out_pas)
+        if os.stat(file_path_passivity).st_size == 0:
+            csv_out_pas.writerow(
+                [
+                    "user_id",
+                    "action_id",
+                    "message_id",
+                    "message_user_id",
+                ]
+            )
