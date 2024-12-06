@@ -4,7 +4,6 @@ and post/repost messages that will be shown to their followers
 """
 
 import numpy as np
-import random
 from mpi4py import MPI
 
 
@@ -37,18 +36,34 @@ def run_agent(
         # Unpack the agent + incoming messages
         user, in_messages = user_pack  # in_messages: inventory
 
+        # Keep track of the weight of the messages (if a message should appear more than one, it has more weight)
+        weight_dict = {}
+
         # Sort messages and drop duplicates (reshare)
         raw_messages = in_messages + user.newsfeed
         sorted_messages = sorted(raw_messages, key=lambda x: x.time, reverse=True)
         message_filter_dict = {}
         nan_parents = []
+        # Iterate to check if there are duplicated reshare messages
         for message in sorted_messages:
             if message.reshared_original_id == np.nan:
                 nan_parents.append(message)
-            elif message.reshared_original_id not in message_filter_dict:
-                message_filter_dict[message.reshared_original_id] = message
+            else:
+                # check for duplicates and if they are present keep track of the weight (n of time they appear)
+                if message.reshared_original_id not in message_filter_dict:
+                    message_filter_dict[message.reshared_original_id] = message
+                    weight_dict[message.reshared_original_id] = 1
+                else:
+                    weight_dict[message.reshared_original_id] += 1
         new_newsfeed = list(message_filter_dict.values()) + nan_parents
+
+        # Sort list temporally and based on the weight
         new_newsfeed = sorted(new_newsfeed, key=lambda x: x.time, reverse=True)
+        new_newsfeed = sorted(
+            new_newsfeed,
+            key=lambda x: (weight_dict.get(x.reshared_original_id, 0), x.time),
+            reverse=True,
+        )
 
         # replace old newsfeed with filtered newsfeed
         user.newsfeed = new_newsfeed
