@@ -41,7 +41,7 @@ RANK_INDEX = {
     "agent_handler": 4,
 }
 
-with open("config.json", "r", encoding="utf-8") as file:
+with open("./config/config.json", "r", encoding="utf-8") as file:
     config = json.load(file)
 
 
@@ -75,6 +75,8 @@ def main():
             rank=rank,
             size=size,
             rank_index=RANK_INDEX,
+            batch_size=config["data_manager_batchsize"],
+            save_passive_interaction=config["save_passive_interaction"],
         )
 
     elif rank == RANK_INDEX["convergence_monitor"]:

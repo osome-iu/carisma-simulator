@@ -69,6 +69,8 @@ def run_data_manager(
     rank: int,
     size: int,
     rank_index: dict,
+    batch_size=5,
+    save_passive_interaction=True,
 ):
     """
     We're confusion
@@ -76,8 +78,6 @@ def run_data_manager(
     - message_count_target # The target number of message to generate for a run (is to have a stopping criterion)
     """
     # TODO: move initialization to `simsom` (probably)
-    # Example sim params
-    batch_size = 5
 
     # Followers
     incoming_messages = {user.uid: [] for user in users}
@@ -190,12 +190,13 @@ def run_data_manager(
                             csv_out_act = csv.writer(out_act)
                             for m in new_msgs:
                                 csv_out_act.writerow(m.write_action())
-                        with open(
-                            file_path_passivity, "a", newline="", encoding="utf-8"
-                        ) as out_pas:
-                            csv_out_pas = csv.writer(out_pas)
-                            for a in passive_actions:
-                                csv_out_pas.writerow(a.write_action())
+                        if save_passive_interaction:
+                            with open(
+                                file_path_passivity, "a", newline="", encoding="utf-8"
+                            ) as out_pas:
+                                csv_out_pas = csv.writer(out_pas)
+                                for a in passive_actions:
+                                    csv_out_pas.writerow(a.write_action())
                         # msgs_store.append(
                         #     (
                         #         m.time,
