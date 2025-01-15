@@ -14,7 +14,7 @@ def run_convergence_monitor(
     comm_world: MPI.Intercomm,
     rank: int,
     rank_index: dict,
-    threshold: int,
+    sliding_window_convergence: int,
     message_count_target: int,
     convergence_param: float,
 ):
@@ -23,7 +23,7 @@ def run_convergence_monitor(
 
     Args:
         comm (MPI.COMM_WORLD): communication context between processes
-        threshold (int): sliding window size for quality analysis
+        sliding_window_convergence (int): sliding window size for quality analysis
         FILE_PATH (str): path to the file where the activities are saved
     """
     print("Convergence monitor start")
@@ -42,7 +42,7 @@ def run_convergence_monitor(
     if message_count_target == 0:
         while flag:
             df = pd.read_csv(file_path)
-            if len(df[index:]) >= threshold:
+            if len(df[index:]) >= sliding_window_convergence:
                 new_value = np.nanmean(df[index:].quality)
             if abs(new_value - old_value) <= convergence_param:
                 data = np.array([1], dtype="i")
@@ -52,7 +52,7 @@ def run_convergence_monitor(
                 req.Wait()
                 flag = False
                 break
-            index += threshold
+            index += sliding_window_convergence
             old_value = new_value
 
     print(f"Convergence monitor stop @ rank: {rank}")

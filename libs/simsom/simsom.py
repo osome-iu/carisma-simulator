@@ -20,10 +20,16 @@ For any questions, please contact us at:
 
 """
 
-from mpi4py import MPI
 import sys
-import argparse
+import json
+from mpi4py import MPI
 import simtools
+
+from data_manager_process import run_data_manager
+from convergence_monitor_process import run_convergence_monitor
+from policy_filter_process import run_policy_filter
+from agent_pool_manager_process import run_agent_pool_manager
+from agent_process import run_agent
 
 
 # Configuration constants
@@ -35,24 +41,8 @@ RANK_INDEX = {
     "agent_handler": 4,
 }
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--n_user", type=int, default=20, help="Number of users simulated")
-
-parser.add_argument(
-    "--message_count_target",
-    type=int,
-    default=0,
-    help="Number of messages to be reached to stop the execution (Default 0, run with convergence method)",
-)
-
-parser.add_argument(
-    "--file_path",
-    type=str,
-    default=None,
-    help="Path of the file to import a real world network (Default build internal)",
-)
-
-args = parser.parse_args()
+with open("config.json", "r", encoding="utf-8") as file:
+    config = json.load(file)
 
 
 def main():
@@ -63,9 +53,13 @@ def main():
 
     # Simulation contstraints (parametrize)
     users = (
-        simtools.init_network(file=args.file_path)
-        if args.file_path
-        else simtools.init_network(net_size=args.n_user)
+        simtools.init_network(file=config["real_world_netowork"])
+        if config["real_world_netowork"]
+        else simtools.init_network(
+            net_size=config["net_size"],
+            p=config["probability_follow"],
+            k_out=config["avg_n_friend"],
+        )
     )
 
     if size < 5:
@@ -74,38 +68,37 @@ def main():
         sys.exit(1)
 
     if rank == RANK_INDEX["data_manager"]:
-
-        from data_manager_process import run_data_manager
-
         run_data_manager(
-            users, args.message_count_target, comm_world, rank, size, RANK_INDEX
+            users=users,
+            message_count_target=config["message_count_target"],
+            comm_world=comm_world,
+            rank=rank,
+            size=size,
+            rank_index=RANK_INDEX,
         )
 
     elif rank == RANK_INDEX["convergence_monitor"]:
-
-        from convergence_monitor_process import run_convergence_monitor
-
         run_convergence_monitor(
-            comm_world, rank, RANK_INDEX, 100, args.message_count_target, 0.001
+            comm_world=comm_world,
+            rank=rank,
+            rank_index=RANK_INDEX,
+            sliding_window_convergence=config["sliding_window_convergence"],
+            message_count_target=config["message_count_target"],
+            convergence_param=config["threshold_convergence"],
         )
 
     elif rank == RANK_INDEX["policy_filter"]:
-
-        from policy_filter_process import run_policy_filter
-
-        run_policy_filter(comm_world, rank, size, RANK_INDEX)
+        run_policy_filter(
+            comm_world=comm_world, rank=rank, size=size, rank_index=RANK_INDEX
+        )
 
     elif rank == RANK_INDEX["agent_pool_manager"]:
-
-        from agent_pool_manager_process import run_agent_pool_manager
-
-        run_agent_pool_manager(comm_world, rank, size, RANK_INDEX)
+        run_agent_pool_manager(
+            comm_world=comm_world, rank=rank, size=size, rank_index=RANK_INDEX
+        )
 
     elif rank >= RANK_INDEX["agent_handler"]:
-
-        from agent_process import run_agent
-
-        run_agent(comm_world, rank, size, RANK_INDEX)
+        run_agent(comm_world=comm_world, rank=rank, size=size, rank_index=RANK_INDEX)
 
 
 if __name__ == "__main__":
