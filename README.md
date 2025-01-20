@@ -38,10 +38,10 @@ The current implementation has very basic definitions for the `Message` and `Age
 To start the simulation, use the following command:
 
 ```
-mpiexec -n 8 python simsom.py
+mpiexec -n 10 python simsom.py --network_spec "./config/default_network_config.json" --simulator_spec "./config/default_simulator_config.json"
 ```
 
-This will run the simulation using 8 processes.
+This will run the simulation using 10 processes.
 
 ## Known Limitations
 

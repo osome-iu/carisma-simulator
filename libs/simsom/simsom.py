@@ -24,6 +24,7 @@ import sys
 import json
 from mpi4py import MPI
 import simtools
+import argparse
 
 from data_manager_process import run_data_manager
 from convergence_monitor_process import run_convergence_monitor
@@ -41,8 +42,27 @@ RANK_INDEX = {
     "agent_handler": 4,
 }
 
-with open("./config/config.json", "r", encoding="utf-8") as file:
-    config = json.load(file)
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--network_spec",
+    type=str,
+    default="./config/default_network_config.json",
+    help="File that contains configuration for the network",
+)
+parser.add_argument(
+    "--simulator_spec",
+    type=str,
+    default="./config/default_simulator_config.json",
+    help="File that contains configuration for the simulation",
+)
+
+args = parser.parse_args()
+
+with open(args.network_spec, "r", encoding="utf-8") as file:
+    network_config = json.load(file)
+
+with open(args.simulator_spec, "r", encoding="utf-8") as file:
+    simulator_config = json.load(file)
 
 
 def main():
@@ -53,12 +73,12 @@ def main():
 
     # Simulation contstraints (parametrize)
     users = (
-        simtools.init_network(file=config["real_world_netowork"])
-        if config["real_world_netowork"]
+        simtools.init_network(file=network_config["real_world_netowork"])
+        if network_config["real_world_netowork"]
         else simtools.init_network(
-            net_size=config["net_size"],
-            p=config["probability_follow"],
-            k_out=config["avg_n_friend"],
+            net_size=network_config["net_size"],
+            p=network_config["probability_follow"],
+            k_out=network_config["avg_n_friend"],
         )
     )
 
@@ -70,13 +90,13 @@ def main():
     if rank == RANK_INDEX["data_manager"]:
         run_data_manager(
             users=users,
-            message_count_target=config["message_count_target"],
+            message_count_target=simulator_config["message_count_target"],
             comm_world=comm_world,
             rank=rank,
             size=size,
             rank_index=RANK_INDEX,
-            batch_size=config["data_manager_batchsize"],
-            save_passive_interaction=config["save_passive_interaction"],
+            batch_size=simulator_config["data_manager_batchsize"],
+            save_passive_interaction=simulator_config["save_passive_interaction"],
         )
 
     elif rank == RANK_INDEX["convergence_monitor"]:
@@ -84,9 +104,9 @@ def main():
             comm_world=comm_world,
             rank=rank,
             rank_index=RANK_INDEX,
-            sliding_window_convergence=config["sliding_window_convergence"],
-            message_count_target=config["message_count_target"],
-            convergence_param=config["threshold_convergence"],
+            sliding_window_convergence=simulator_config["sliding_window_convergence"],
+            message_count_target=simulator_config["message_count_target"],
+            convergence_param=simulator_config["threshold_convergence"],
         )
 
     elif rank == RANK_INDEX["policy_filter"]:
