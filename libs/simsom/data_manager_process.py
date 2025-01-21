@@ -69,6 +69,7 @@ def run_data_manager(
     rank: int,
     size: int,
     rank_index: dict,
+    filter_illegal: bool,
     batch_size=5,
     save_passive_interaction=True,
 ):
@@ -165,6 +166,9 @@ def run_data_manager(
                             source=source,
                             status=status,
                         )
+                        if filter_illegal:
+                            new_msgs = [msg for msg in new_msgs if msg.quality != 0]
+
                         for msg in new_msgs:
                             msg.time = clock.next_time()
 

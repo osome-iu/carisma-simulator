@@ -95,6 +95,7 @@ def main():
             rank=rank,
             size=size,
             rank_index=RANK_INDEX,
+            filter_illegal=simulator_config["filter_illegal"],
             batch_size=simulator_config["data_manager_batchsize"],
             save_passive_interaction=simulator_config["save_passive_interaction"],
         )
@@ -111,7 +112,10 @@ def main():
 
     elif rank == RANK_INDEX["policy_filter"]:
         run_policy_filter(
-            comm_world=comm_world, rank=rank, size=size, rank_index=RANK_INDEX
+            comm_world=comm_world,
+            rank=rank,
+            size=size,
+            rank_index=RANK_INDEX,
         )
 
     elif rank == RANK_INDEX["agent_pool_manager"]:

@@ -3,5 +3,6 @@
     "save_passive_interaction": true,
     "data_manager_batchsize": 10,
     "sliding_window_convergence": 10,
-    "threshold_convergence": 0.001 
+    "threshold_convergence": 0.001,
+    "filter_illegal": true
 }
