@@ -108,6 +108,7 @@ def main():
             sliding_window_convergence=simulator_config["sliding_window_convergence"],
             message_count_target=simulator_config["message_count_target"],
             convergence_param=simulator_config["threshold_convergence"],
+            verbose=simulator_config["verbose"],
         )
 
     elif rank == RANK_INDEX["policy_filter"]:

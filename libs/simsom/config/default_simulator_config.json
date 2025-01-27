@@ -1,8 +1,9 @@
 {
-    "message_count_target": 10000, 
+    "message_count_target": 0, 
     "save_passive_interaction": true,
     "data_manager_batchsize": 10,
-    "sliding_window_convergence": 10,
-    "threshold_convergence": 0.001,
-    "filter_illegal": true
+    "sliding_window_convergence": 1000,
+    "threshold_convergence": 0.01,
+    "filter_illegal": true,
+    "verbose": true
 }

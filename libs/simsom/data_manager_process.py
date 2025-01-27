@@ -7,6 +7,7 @@ import csv
 import random as rnd
 import copy
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from mpi4py import MPI
 from user import User
@@ -114,6 +115,14 @@ def run_data_manager(
                         data, source=rank_index["convergence_monitor"]
                     )  # non-blocking receive
                     req.Wait()
+                    df = pd.read_csv(file_path_activity)
+                    df = df[: data[0]]
+                    df.to_csv(
+                        file_path_activity,
+                        lineterminator="\n",
+                        index=False,
+                        encoding="utf-8",
+                    )
                     comm_world.send("sigterm", dest=rank_index["policy_filter"])
                     break
             else:
