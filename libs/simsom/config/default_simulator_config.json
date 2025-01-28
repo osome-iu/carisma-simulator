@@ -1,5 +1,5 @@
 {
-    "message_count_target": 0, 
+    "message_count_target": 10000, 
     "save_passive_interaction": true,
     "data_manager_batchsize": 10,
     "sliding_window_convergence": 1000,

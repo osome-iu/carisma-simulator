@@ -64,7 +64,6 @@ def run_convergence_monitor(
             if verbose:
                 if len(current_window) == 250:
                     print(f"- Average quality: {current_sum / 250}")
-                    print(f"- Number of activites: {count_index}")
             if len(current_window) == sliding_window_convergence:
                 current_avg = current_sum / sliding_window_convergence
 
@@ -82,6 +81,8 @@ def run_convergence_monitor(
                             )  # non blocking send
                             req.Wait()
                             break
+                    elif count_index >= message_count_target:
+                        break
 
                 previous_window = current_window
                 current_window = []

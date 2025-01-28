@@ -63,6 +63,17 @@ def batch_message_propagation(message_board: dict, user: User, messages: list):
             message_board["u" + str(follower_uid)].append(copy.deepcopy(m))
 
 
+def resize_output(size: int):
+    df = pd.read_csv(file_path_activity)
+    df = df[:size]
+    df.to_csv(
+        file_path_activity,
+        lineterminator="\n",
+        index=False,
+        encoding="utf-8",
+    )
+
+
 def run_data_manager(
     users: list,
     message_count_target: int,
@@ -115,18 +126,12 @@ def run_data_manager(
                         data, source=rank_index["convergence_monitor"]
                     )  # non-blocking receive
                     req.Wait()
-                    df = pd.read_csv(file_path_activity)
-                    df = df[: data[0]]
-                    df.to_csv(
-                        file_path_activity,
-                        lineterminator="\n",
-                        index=False,
-                        encoding="utf-8",
-                    )
+                    resize_output(data[0])
                     comm_world.send("sigterm", dest=rank_index["policy_filter"])
                     break
             else:
                 if message_count >= message_count_target:
+                    resize_output(message_count_target)
                     break
             batch_send_req = None
 
