@@ -43,6 +43,7 @@ def run_convergence_monitor(
     current_window = []
     current_sum = 0
     count_index = 0
+    overall_appeal = []
 
     with open(file_path, "r", encoding="utf-8") as csvfile:
         reader = csv.reader(csvfile)
@@ -61,6 +62,7 @@ def run_convergence_monitor(
             quality = float(row[2])
             current_window.append(quality)
             current_sum += quality
+            overall_appeal.append(float(row[3]))
             if verbose:
                 if len(current_window) == 250:
                     print(f"- Average quality: {current_sum / 250}")
@@ -80,8 +82,26 @@ def run_convergence_monitor(
                                 data, dest=rank_index["data_manager"]
                             )  # non blocking send
                             req.Wait()
+                            if verbose:
+                                print(
+                                    "-- Overall average quality: ",
+                                    current_sum / count_index,
+                                )
+                                print(
+                                    "-- Overall average appeal: ",
+                                    np.nanmean(overall_appeal),
+                                )
                             break
                     elif count_index >= message_count_target:
+                        if verbose:
+                            print(
+                                "-- Overall average quality: ",
+                                current_sum / count_index,
+                            )
+                            print(
+                                "-- Overall average appeal: ",
+                                np.nanmean(overall_appeal),
+                            )
                         break
 
                 previous_window = current_window
