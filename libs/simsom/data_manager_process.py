@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from mpi4py import MPI
+from collections import Counter
 from user import User
 import simtools
 
@@ -17,6 +18,7 @@ time_now = int(time.time())
 folder_path = f"files/{time_now}"
 file_path_activity = folder_path + "/activities.csv"
 file_path_passivity = folder_path + "/passivities.csv"
+diversity_file_path = folder_path + "/diversity_log.txt"
 
 
 class ClockManager:
@@ -74,6 +76,18 @@ def resize_output(size: int):
     )
 
 
+def obtain_diversity(messages: list):
+    humanshares = []
+    for message in messages:
+        humanshares += [message.aid]
+    message_counts = Counter(humanshares)
+    count_byid = sorted(dict(message_counts).items())
+    humanshares = np.array([m[1] for m in count_byid])
+    hshare_pct = np.divide(humanshares, sum(humanshares))
+    diversity = np.sum(hshare_pct * np.log(hshare_pct)) * -1
+    return diversity
+
+
 def run_data_manager(
     users: list,
     message_count_target: int,
@@ -82,6 +96,8 @@ def run_data_manager(
     size: int,
     rank_index: dict,
     filter_illegal: bool,
+    verbose: bool,
+    print_interval: int,
     batch_size=5,
     save_passive_interaction=True,
 ):
@@ -102,10 +118,14 @@ def run_data_manager(
     clock = ClockManager()
 
     # Init files
-    simtools.init_files(folder_path, file_path_activity, file_path_passivity)
+    simtools.init_files(
+        folder_path, file_path_activity, file_path_passivity, diversity_file_path
+    )
 
     # DEBUG #
     # msgs_store = []
+    manage_print = 0
+    diversity_messages = []
 
     # Bootstrap sync
     comm_world.Barrier()
@@ -200,6 +220,7 @@ def run_data_manager(
                         # Increase counter by the number of action (messages) produced
                         message_count += len(new_msgs)
                         pbar.update(1)
+                        diversity_messages.extend(new_msgs)
 
                         # DEBUG #
                         with open(
@@ -207,6 +228,16 @@ def run_data_manager(
                         ) as out_act:
                             csv_out_act = csv.writer(out_act)
                             for m in new_msgs:
+                                manage_print += 1
+                                if verbose:
+                                    if manage_print == print_interval:
+                                        diversity = obtain_diversity(diversity_messages)
+                                        with open(
+                                            diversity_file_path, "w", encoding="utf-8"
+                                        ) as diversity_file:
+                                            diversity_file.write(str(diversity))
+                                        manage_print = 0
+                                        diversity_messages = []
                                 csv_out_act.writerow(m.write_action())
                         if save_passive_interaction:
                             with open(

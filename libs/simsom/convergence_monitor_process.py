@@ -37,6 +37,10 @@ def run_convergence_monitor(
     # Bootstrap sync
     comm_world.Barrier()
 
+    diversity_file_paths = glob("files/*/diversity_log.txt")
+    diversity_file_paths.sort()
+    diversity_file_path = diversity_file_paths[-1]
+
     file_paths = glob("files/*/activities.csv")
     file_paths.sort()
     file_path = file_paths[-1]
@@ -44,6 +48,7 @@ def run_convergence_monitor(
     current_window = []
     current_sum = 0
     count_index = 0
+    check_print = []
     overall_appeal = []
 
     with open(file_path, "r", encoding="utf-8") as csvfile:
@@ -61,12 +66,20 @@ def run_convergence_monitor(
             row = line.strip().split(",")
             count_index += 1
             quality = float(row[2])
+            check_print.append(quality)
             current_window.append(quality)
             current_sum += quality
             overall_appeal.append(float(row[3]))
             if verbose:
-                if len(current_window) == print_interval:
-                    print(f"- Average quality: {current_sum / print_interval}")
+                if len(check_print) == print_interval:
+                    print(f"- Average quality: {np.mean(check_print)}")
+                    with open(
+                        diversity_file_path, "r", encoding="utf-8"
+                    ) as diversity_file:
+                        diversity_value = diversity_file.readline().strip()
+                    print(f"- Average diversity: {diversity_value}")
+                    check_print = []
+                    print("---------------------")
             if len(current_window) == sliding_window_convergence:
                 current_avg = current_sum / sliding_window_convergence
 
@@ -74,7 +87,9 @@ def run_convergence_monitor(
                     previous_avg = sum(previous_window) / sliding_window_convergence
                     diff = abs(current_avg - previous_avg)
                     if verbose:
+                        print("Window end")
                         print(f"- Quality difference between windows: {diff}")
+                        print("---------------------")
 
                     if message_count_target == 0:
                         if diff <= convergence_param:

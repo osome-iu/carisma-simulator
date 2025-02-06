@@ -96,6 +96,8 @@ def main():
             size=size,
             rank_index=RANK_INDEX,
             filter_illegal=simulator_config["filter_illegal"],
+            verbose=simulator_config["verbose"],
+            print_interval=simulator_config["print_interval"],
             batch_size=simulator_config["data_manager_batchsize"],
             save_passive_interaction=simulator_config["save_passive_interaction"],
         )

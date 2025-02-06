@@ -6,5 +6,5 @@
     "threshold_convergence": 0.01,
     "filter_illegal": true,
     "verbose": true,
-    "print_interval": 100
+    "print_interval": 1000
 }

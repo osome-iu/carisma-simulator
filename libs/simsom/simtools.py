@@ -96,7 +96,10 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
 
 
 def init_files(
-    folder_path: str, file_path_activity: str, file_path_passivity: str
+    folder_path: str,
+    file_path_activity: str,
+    file_path_passivity: str,
+    file_path_diversity: str,
 ) -> None:
     """Generate empty files to persist actions
 
@@ -111,6 +114,9 @@ def init_files(
         os.remove(file_path_activity)
     if os.path.isfile(file_path_passivity):
         os.remove(file_path_passivity)
+    if os.path.isfile(file_path_diversity):
+        os.remove(file_path_diversity)
+
     with open(file_path_activity, "w", newline="", encoding="utf-8") as out_act:
         csv_out_act = csv.writer(out_act)
         if os.stat(file_path_activity).st_size == 0:
@@ -138,3 +144,6 @@ def init_files(
                     "message_user_id",
                 ]
             )
+
+    with open(file_path_diversity, "w", encoding="utf-8") as diversity_file:
+        diversity_file.write("0")
