@@ -5,5 +5,6 @@
     "sliding_window_convergence": 1000,
     "threshold_convergence": 0.01,
     "filter_illegal": true,
-    "verbose": true
+    "verbose": true,
+    "print_interval": 100
 }

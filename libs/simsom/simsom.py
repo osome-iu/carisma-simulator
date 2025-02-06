@@ -109,6 +109,7 @@ def main():
             message_count_target=simulator_config["message_count_target"],
             convergence_param=simulator_config["threshold_convergence"],
             verbose=simulator_config["verbose"],
+            print_interval=simulator_config["print_interval"],
         )
 
     elif rank == RANK_INDEX["policy_filter"]:

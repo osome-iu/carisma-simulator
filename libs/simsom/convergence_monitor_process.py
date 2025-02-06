@@ -19,6 +19,7 @@ def run_convergence_monitor(
     message_count_target: int,
     convergence_param: float,
     verbose: bool,
+    print_interval: int,
 ):
     """
     Function that takes care of calculating the convergence condition and stop execution
@@ -64,8 +65,8 @@ def run_convergence_monitor(
             current_sum += quality
             overall_appeal.append(float(row[3]))
             if verbose:
-                if len(current_window) == 250:
-                    print(f"- Average quality: {current_sum / 250}")
+                if len(current_window) == print_interval:
+                    print(f"- Average quality: {current_sum / print_interval}")
             if len(current_window) == sliding_window_convergence:
                 current_avg = current_sum / sliding_window_convergence
 
