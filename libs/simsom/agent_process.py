@@ -14,8 +14,6 @@ def run_agent(
     rank_index: dict,
 ):
 
-    print(f"Agent handler start @ rank: {rank}")
-
     # Status of the processes
     status = MPI.Status()
 
@@ -76,5 +74,3 @@ def run_agent(
 
         # Send the packet to data manager (wait to be received)
         comm_world.send(agent_pack_reply, dest=rank_index["data_manager"])
-
-    print(f"Agent handler stop @ rank: {rank}")
