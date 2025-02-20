@@ -5,10 +5,32 @@ Send termination signal to all processes when the simulation has converged.
 
 import time
 from glob import glob
-import pandas as pd
+from collections import Counter
 import csv
 import numpy as np
 from mpi4py import MPI
+
+
+def obtain_diversity(messages_id: list):
+    """Get diversity value based on shared messages.
+    The function take in input the list of all messages
+    that has been created and calculate diversity
+
+    Args:
+        messages_id (list): list of messages id
+
+    Returns:
+        float: diversity value
+    """
+    humanshares = []
+    for message_id in messages_id:
+        humanshares += [message_id]
+    message_counts = Counter(humanshares)
+    count_byid = sorted(dict(message_counts).items())
+    humanshares = np.array([m[1] for m in count_byid])
+    hshare_pct = np.divide(humanshares, sum(humanshares))
+    diversity = np.sum(hshare_pct * np.log(hshare_pct)) * -1
+    return diversity
 
 
 def run_convergence_monitor(
@@ -37,22 +59,28 @@ def run_convergence_monitor(
     comm_world.Barrier()
 
     # Files paths
-    diversity_file_paths = glob("files/*/diversity_log.txt")
-    diversity_file_paths.sort()
     file_paths = glob("files/*/activities.csv")
     file_paths.sort()
 
     # Take the most recent file
-    diversity_file_path = diversity_file_paths[-1]
     file_path = file_paths[-1]
 
-    previous_window = []
-    current_window = []
-    current_sum = 0
+    # It contains a list of quality values, used to calculate quality between windows
+    current_quality = []
+    current_appeal = []
+    # Number of rows we have, used to clean the file and manage max_iter
     count_index = 0
-    check_print = []
+    # Count number of iterations to create intervals for print
+    count_interval = 0
+    # Count number of iterations to create windows
+    current_window = 0
+    # Keep track of overall quality and appeal
     overall_quality = []
     overall_appeal = []
+    # First window shouldn't be considered
+    previous_avg = None
+    # For diversity
+    message_id_list = []
 
     # Read the activity file, where we store the messages that has been created
     with open(file_path, "r", encoding="utf-8") as csvfile:
@@ -74,15 +102,23 @@ def run_convergence_monitor(
             count_index += 1
 
             # Obtains data related to the activities
+            message_id = row[0]
+            # user_id = row[1]
             quality = float(row[2])
             appeal = float(row[3])
 
             # Get quality to print quality interval
-            check_print.append(quality)
-            current_window.append(quality)
+            current_window += 1
+            count_interval += 1
+            # Get the quality for the sliding window difference and appeal
+            current_quality.append(quality)
+            current_appeal.append(appeal)
 
-            # Get the quality for the sliding window difference
-            current_sum += quality
+            # Get the message id to calculate diversity
+            if message_id.startswith("P"):
+                message_id_list.append(message_id)
+            else:
+                message_id_list.append(row[6])
 
             # Get the data for the entire period
             overall_appeal.append(appeal)
@@ -90,25 +126,22 @@ def run_convergence_monitor(
 
             if verbose:
                 # If we want to see info during the execution, based on n. of activities
-                if len(check_print) == print_interval:
+                if count_interval == print_interval:
                     # Print the average quality for the interval
-                    print(f"- Average quality: {np.mean(check_print)}")
-                    with open(
-                        diversity_file_path, "r", encoding="utf-8"
-                    ) as diversity_file:
-                        diversity_value = diversity_file.readline().strip()
+                    print(f"- Average quality: {np.mean(current_quality)}")
                     # Print the average appeal for the interval
-                    print(f"- Average diversity: {diversity_value}")
-                    check_print = []
+                    print(f"- Average appeal: {np.mean(current_appeal)}")
+                    # Print the average diversity for the interval
+                    print(f"- Average diversity: {obtain_diversity(message_id_list)}")
+                    count_interval = 0
                     print("---------------------")
 
             # When we reach the sliding window size we calculate the current average
-            if len(current_window) == sliding_window_convergence:
-                current_avg = current_sum / sliding_window_convergence
+            if current_window == sliding_window_convergence:
+                current_avg = np.nanmean(current_quality)
 
                 # We check if it is not the first window and compare with the window before
-                if previous_window:
-                    previous_avg = sum(previous_window) / sliding_window_convergence
+                if previous_avg:
                     diff = abs(current_avg - previous_avg)
                     if verbose:
                         print("Window end")
@@ -132,6 +165,10 @@ def run_convergence_monitor(
                                     "-- Overall average appeal: ",
                                     np.nanmean(overall_appeal),
                                 )
+                                print(
+                                    "-- Overall average diversity: ",
+                                    obtain_diversity(message_id_list),
+                                )
                             break
                     # Otherwise send stats without convergence monitor
                     elif count_index >= message_count_target:
@@ -144,8 +181,12 @@ def run_convergence_monitor(
                                 "-- Overall average appeal: ",
                                 np.nanmean(overall_appeal),
                             )
+                            print(
+                                "-- Overall average diversity: ",
+                                obtain_diversity(message_id_list),
+                            )
                         break
 
-                previous_window = current_window
-                current_window = []
-                current_sum = 0
+                previous_avg = current_avg
+                current_window = 0
+                current_quality = []
