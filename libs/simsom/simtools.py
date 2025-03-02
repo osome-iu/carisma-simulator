@@ -96,7 +96,9 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
 
 
 def init_files(
-    folder_path: str, file_path_activity: str, file_path_passivity: str
+    folder_path: str,
+    file_path_activity: str,
+    file_path_passivity: str,
 ) -> None:
     """Generate empty files to persist actions
 
@@ -111,6 +113,7 @@ def init_files(
         os.remove(file_path_activity)
     if os.path.isfile(file_path_passivity):
         os.remove(file_path_passivity)
+
     with open(file_path_activity, "w", newline="", encoding="utf-8") as out_act:
         csv_out_act = csv.writer(out_act)
         if os.stat(file_path_activity).st_size == 0:

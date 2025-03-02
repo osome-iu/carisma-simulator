@@ -9,8 +9,6 @@ def run_policy_filter(
     rank_index: dict,
 ):
 
-    print("Policy filter start")
-
     # Status of the processes
     status = MPI.Status()
 
@@ -33,5 +31,3 @@ def run_policy_filter(
 
         # Redirect the processed batch to agent pool manager
         comm_world.send(processed_batch, dest=rank_index["agent_pool_manager"])
-
-    print(f"Policy filter stop @ rank: {rank}")

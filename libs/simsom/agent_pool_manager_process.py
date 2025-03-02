@@ -14,8 +14,6 @@ def run_agent_pool_manager(
     rank_index: dict,
 ):
 
-    print(f"Handler pool manager start @ rank: {rank}")
-
     # Ranks of all available agent handler
     agent_handlers_ranks = list(range(rank_index["agent_handler"], size))
 
@@ -64,5 +62,3 @@ def run_agent_pool_manager(
     # Handlers shutdown
     for i in range(rank_index["agent_handler"], size):
         comm_world.send("sigterm", dest=i)
-
-    print(f"Handler pool manager stop @ rank: {rank}")
