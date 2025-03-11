@@ -99,7 +99,7 @@ def run_policy_filter(
 
             # Apply suspension logic using the batch itself
             suspension(user, user_packs_batch, current_time)
-            
+            print(f"User {user.uid} went through susension: suspension - {user.is_suspended}, termination - {user.is_terminated}", flush=True)
             # Update the user pack
             user_packs_batch[i] = (user, in_messages, current_time)
 
