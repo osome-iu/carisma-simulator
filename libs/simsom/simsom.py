@@ -46,13 +46,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--network_spec",
     type=str,
-    default="./config/default_network_config.json",
+    default="./libs/simsom/config/default_network_config.json",
     help="File that contains configuration for the network",
 )
 parser.add_argument(
     "--simulator_spec",
     type=str,
-    default="./config/default_simulator_config.json",
+    default="./libs/simsom/config/default_simulator_config.json",
     help="File that contains configuration for the simulation",
 )
 

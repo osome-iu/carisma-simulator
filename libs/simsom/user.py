@@ -36,7 +36,17 @@ class User:
         for _ in range(random.randrange(1, 6)):
             user_description.append(random.randrange(0, 5))
         self.user_description = list(set(user_description))
+        self.bad_message_posting = False
+        self.is_flagged = False
+        self.is_first_flagged = False
+        self.is_second_flagged = False
+        self.first_flagged_time = 0
+        self.second_flagged_time = 0
+        self.current_flagged_time = 0
         self.is_suspended = False
+        self.suspended_time = 0
+        self.sus_strike_count = 0
+        self.is_terminated = False
         self.is_shadow = False
         self.mu = 0.5
 
@@ -129,6 +139,11 @@ class User:
             quality_params=self.quality_params,
         )
         # self.shared_messages.append(message_created)
+
+        # Check if the message quality is 0 and increment suspension strike count --> having 0.3 for testing
+        if message_created.quality < 0.1:
+            self.bad_message_posting = True
+            
         self.post_counter += 1
         return message_created
 

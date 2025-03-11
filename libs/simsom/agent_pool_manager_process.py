@@ -24,13 +24,13 @@ def run_agent_pool_manager(
     comm_world.Barrier()
 
     while True:
-
+        print(f"Agent pool manager @ rank {rank} waiting for batch...", flush=True)
         # Get data from policy filter
         user_packs_batch = comm_world.recv(
             source=rank_index["policy_filter"],
             status=status,
         )
-
+        print(f"Agent pool manager @ rank {rank} got the batch...", flush=True)
         # Check for termination
         if user_packs_batch == "sigterm":
             break

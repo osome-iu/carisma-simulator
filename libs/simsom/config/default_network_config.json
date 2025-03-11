@@ -1,5 +1,5 @@
 {
-    "real_world_netowork": "./data/default_graph.gml",
+    "real_world_netowork": "./libs/simsom/data/default_graph.gml",
     "net_size": 200,
     "probability_follow": 0.5,
     "avg_n_friend": 3
