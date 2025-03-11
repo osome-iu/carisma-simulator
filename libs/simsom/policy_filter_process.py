@@ -18,21 +18,21 @@ def suspension(user, users_packs_batch, current_time):
     if user.is_suspended and abs(current_time - user.suspended_time) > 1:
         user.is_suspended = False  # Lift suspension
 
-    # Check if flagging time has passed
+    # Update flagging situation of a user
     if user.is_flagged and abs(current_time - user.current_flagged_time) > 6:
-        if not user.is_second_flagged:
+        if not user.is_second_flagged: #when there is no second flag, a user is starting as a user who has never been suspended
             user.is_flagged = False
             user.is_first_flagged = False
             user.current_flagged_time = 0
             user.first_flagged_time = 0
-        if user.is_second_flagged: #make a second flag as a first flag
+        if user.is_second_flagged: #make a second flag as a first flag, and resetting values related to second flagging
             user.is_first_flagged = True
             user.first_flagged_time = user.second_flagged_time
             user.current_flagged_time = user.second_flagged_time
             user.is_second_flagged = False
             user.second_flagged_time = 0
 
-    # If the user posted a bad message
+    # check whether a user posted a bad message during the last cycle/step
     if user.bad_message_posting:
         if not user.is_flagged:
             # First offense or flag reset: Flag and suspend
@@ -43,19 +43,21 @@ def suspension(user, users_packs_batch, current_time):
             user.first_flagged_time = current_time
             user.current_flagged_time = current_time
             user.suspended_time = current_time
+            user.bad_message_poasting = False
         else:
-            # Already flagged → Just suspend, increase strike count
+            # For already flagged users, add second flagged information, suspend, and increase strike count
             user.is_suspended = True
             user.is_second_flagged = True
             user.second_flagged_time = current_time
             user.suspended_time = current_time
             user.sus_strike_count += 1
+            user.bad_message_poasting = False
 
-        # **Clear the suspended user's feed**
+        # Clear a suspended user's feed
         if hasattr(user, "newsfeed"):
             user.newsfeed = []
 
-        # **Remove suspended user’s messages from other users' newsfeeds**
+        # Remove suspended user’s messages from other users' newsfeeds
         for other_user, _, _ in users_packs_batch:
             if hasattr(other_user, "newsfeed"):
                 other_user.newsfeed = [
@@ -82,12 +84,10 @@ def run_policy_filter(
     while True:
 
         # Wait for a batch of (agents, in_messages) to process
-        print(f"Policy filter @ rank {rank} waiting for batch from data manager", flush=True)
         user_packs_batch = comm_world.recv(
             source=rank_index["data_manager"], status=status
         )
-        print(f"Policy filter @ rank {rank} received batch", flush=True)
-
+        
         # Check for termination signal
         if user_packs_batch == "sigterm":
             comm_world.send("sigterm", dest=rank_index["agent_pool_manager"])
@@ -99,7 +99,7 @@ def run_policy_filter(
 
             # Apply suspension logic using the batch itself
             suspension(user, user_packs_batch, current_time)
-            print(f"User {user.uid} went through susension: suspension - {user.is_suspended}, termination - {user.is_terminated}", flush=True)
+            #print(f"User {user.uid} went through susension: suspension - {user.is_suspended}, termination - {user.is_terminated}", flush=True)
             # Update the user pack
             user_packs_batch[i] = (user, in_messages, current_time)
 

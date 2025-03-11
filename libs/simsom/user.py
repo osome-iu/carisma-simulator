@@ -36,17 +36,17 @@ class User:
         for _ in range(random.randrange(1, 6)):
             user_description.append(random.randrange(0, 5))
         self.user_description = list(set(user_description))
-        self.bad_message_posting = False
-        self.is_flagged = False
-        self.is_first_flagged = False
-        self.is_second_flagged = False
-        self.first_flagged_time = 0
-        self.second_flagged_time = 0
-        self.current_flagged_time = 0
-        self.is_suspended = False
-        self.suspended_time = 0
-        self.sus_strike_count = 0
-        self.is_terminated = False
+        self.bad_message_posting = False #Trait to track bad activities of users
+        self.is_flagged = False #Aggregate indicator for flagging
+        self.is_first_flagged = False #Indicator for first flagging
+        self.is_second_flagged = False #Indicator for second flagging
+        self.first_flagged_time = 0 #timestamp for first flagging
+        self.second_flagged_time = 0 #timestamp for second flagging
+        self.current_flagged_time = 0 #timestamp for flagging that is used for the current suspension/termination process
+        self.is_suspended = False #Indicator for suspension
+        self.suspended_time = 0 #timestamp for suspension
+        self.sus_strike_count = 0 #strike count for suspension
+        self.is_terminated = False #indicator for termination
         self.is_shadow = False
         self.mu = 0.5
 
@@ -140,7 +140,7 @@ class User:
         )
         # self.shared_messages.append(message_created)
 
-        # Check if the message quality is 0 and increment suspension strike count --> having 0.3 for testing
+        # Check if the message quality is below 0.01 and update bad_message_posting
         if message_created.quality < 0.01:
             self.bad_message_posting = True
             

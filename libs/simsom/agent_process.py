@@ -22,24 +22,22 @@ def run_agent(
 
     while True:
         # Receive package that contains (friend ids, messages) from agent_pool_manager
-        # Wait for agent pack to process
-        print(f"Agent @ rank {rank} waiting for user pack...")
         user_pack = comm_world.recv(
             source=rank_index["agent_pool_manager"],
             status=status,
         )
-        print(f"Agent @ rank {rank} received user pack")
+        
         if user_pack == "sigterm":
             break
 
-        # Ensure backward compatibility with older user_packs
+        # Ensure backward compatibility with older user_packs as current_time is included for suspension 
         if len(user_pack) == 2:
             user, in_messages = user_pack
             current_time = None  # Default value if not included
         else:
             user, in_messages, current_time = user_pack
 
-        if not user.is_terminated and not user.is_suspended:
+        if not user.is_terminated and not user.is_suspended: #only go through the process when a user is both not suspended and not terminated
             # Keep track of the weight of the messages (if a message should appear more than one, it has more weight)
             weight_dict = {}
 
@@ -77,7 +75,6 @@ def run_agent(
         else:
             # For terminated or suspended users, send minimal data
             new_msgs, passive_actions = [], []
-            print(f"User {user.uid} no actions since it is suspended or terminated")
             
         # Repack the agent (updated feed) and actions (messages he produced)
         agent_pack_reply = (user, new_msgs, passive_actions)
