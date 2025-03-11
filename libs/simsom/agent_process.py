@@ -39,46 +39,46 @@ def run_agent(
         else:
             user, in_messages, current_time = user_pack
 
-        # **Skip processing for terminated or suspended users**
-        #if user.is_terminated or user.is_suspended:
-        #    print(f"Skipping a user {user.uid} since it is suspended/terminated")
-        #    continue  # Skip to the next user pack
+        if not user.is_terminated and not user.is_suspended:
+            # Keep track of the weight of the messages (if a message should appear more than one, it has more weight)
+            weight_dict = {}
 
-        # Keep track of the weight of the messages (if a message should appear more than one, it has more weight)
-        weight_dict = {}
-
-        # Sort messages and drop duplicates (reshare)
-        raw_messages = in_messages + user.newsfeed
-        sorted_messages = sorted(raw_messages, key=lambda x: x.time, reverse=True)
-        message_filter_dict = {}
-        nan_parents = []
-        # Iterate to check if there are duplicated reshare messages
-        for message in sorted_messages:
-            if message.reshared_original_id == np.nan:
-                nan_parents.append(message)
-            else:
-                # check for duplicates and if they are present keep track of the weight (n of time they appear)
-                if message.reshared_original_id not in message_filter_dict:
-                    message_filter_dict[message.reshared_original_id] = message
-                    weight_dict[message.reshared_original_id] = 1
+            # Sort messages and drop duplicates (reshare)
+            raw_messages = in_messages + user.newsfeed
+            sorted_messages = sorted(raw_messages, key=lambda x: x.time, reverse=True)
+            message_filter_dict = {}
+            nan_parents = []
+            # Iterate to check if there are duplicated reshare messages
+            for message in sorted_messages:
+                if message.reshared_original_id == np.nan:
+                    nan_parents.append(message)
                 else:
-                    weight_dict[message.reshared_original_id] += 1
-        new_newsfeed = list(message_filter_dict.values()) + nan_parents
+                    # check for duplicates and if they are present keep track of the weight (n of time they appear)
+                    if message.reshared_original_id not in message_filter_dict:
+                        message_filter_dict[message.reshared_original_id] = message
+                        weight_dict[message.reshared_original_id] = 1
+                    else:
+                        weight_dict[message.reshared_original_id] += 1
+            new_newsfeed = list(message_filter_dict.values()) + nan_parents
 
-        # Sort list temporally and based on the weight
-        new_newsfeed = sorted(new_newsfeed, key=lambda x: x.time, reverse=True)
-        new_newsfeed = sorted(
-            new_newsfeed,
-            key=lambda x: (weight_dict.get(x.reshared_original_id, 0), x.time),
-            reverse=True,
-        )
+            # Sort list temporally and based on the weight
+            new_newsfeed = sorted(new_newsfeed, key=lambda x: x.time, reverse=True)
+            new_newsfeed = sorted(
+                new_newsfeed,
+                key=lambda x: (weight_dict.get(x.reshared_original_id, 0), x.time),
+                reverse=True,
+            )
 
-        # replace old newsfeed with filtered newsfeed
-        user.newsfeed = new_newsfeed
+            # replace old newsfeed with filtered newsfeed
+            user.newsfeed = new_newsfeed
 
-        # Do some actions
-        new_msgs, passive_actions = user.make_actions()
-
+            # Do some actions
+            new_msgs, passive_actions = user.make_actions()
+        else:
+            # For terminated or suspended users, send minimal data
+            new_msgs, passive_actions = [], []
+            print(f"User {user.uid} no actions since it is suspended or terminated")
+            
         # Repack the agent (updated feed) and actions (messages he produced)
         agent_pack_reply = (user, new_msgs, passive_actions)
 
