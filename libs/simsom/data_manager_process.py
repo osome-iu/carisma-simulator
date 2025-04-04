@@ -1,5 +1,5 @@
 """
-The data manager is responsible for choosing Users to run, save on disk generated data and 
+The data manager is responsible for choosing Users to run, save on disk generated data and
 """
 
 import time
@@ -59,7 +59,7 @@ def batch_message_propagation(message_board: dict, user: User, messages: list):
     # # NOTE: an equivalent (and more simple) implementation could be:
     for follower_uid in user.followers:
         for m in messages:
-            message_board["u" + str(follower_uid)].append(copy.deepcopy(m))
+            message_board[follower_uid].append(copy.deepcopy(m))
 
 
 def resize_output(size: int):

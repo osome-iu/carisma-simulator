@@ -12,8 +12,8 @@ from action import Action
 class Message(Action):
     def __init__(
         self,
-        mid: int,
-        uid: int,
+        mid: str,
+        uid: str,
         quality_params: tuple,
         topic: int,
         is_shadow: bool,
