@@ -18,6 +18,8 @@ def run_recommender_system(
 
     global_inventory = []
 
+    # Function to check for termination signal
+    # (non-blocking)
     def check_for_sigterm():
         """Non-blocking check for termination signal"""
         if comm_world.Iprobe(source=rank_index["analyzer"]):
@@ -26,18 +28,23 @@ def run_recommender_system(
         return False
 
 
-    def build_feed(agent, in_messages, out_messages, in_perc=1, out_perc=0) -> list:
+    def build_feed(agent, in_messages, out_messages, in_perc=0.5, out_perc=0.5) -> list:
         """
         Build the newsfeed for the agent based on the incoming and outgoing messages.
         """
+        # If there are no messages, return an empty list
         if not in_messages and not out_messages:
             return []
+        # Shuffle the messages to randomize the order
         random.shuffle(in_messages)
         random.shuffle(out_messages)
+        # Get percentages of messages to keep from in and out
         n_in = int(len(in_messages) * in_perc)
         n_out = int(len(out_messages) * out_perc)
+        # Build the newsfeed and shuffle it
         new_feed = in_messages[:n_in] + out_messages[:n_out]
         random.shuffle(new_feed)
+        # Cut off the newsfeed if needed
         if len(new_feed) > agent.cut_off:
             new_feed = new_feed[: agent.cut_off]
         agent.newsfeed = new_feed
@@ -60,8 +67,9 @@ def run_recommender_system(
 
     while True:
 
+        # Check for termination signal (we need two of them because we risk
+        # to miss the first one if we are busy processing data)
         if check_for_sigterm():
-
             close_process()
             break
         
@@ -76,10 +84,12 @@ def run_recommender_system(
         users = []
         passivities = []
         activities = []
-        # Check if the data is empty, so first iteration and just send the user
+        # Unpack the data and iterate over the contents
         for user , active_actions, passive_actions in data:
+            # Get the message from inside and outside the network
             in_messages = []
             out_messages = []
+            # Keep track of the messages using a global inventory
             global_inventory.extend(active_actions)
             for activity in global_inventory:
                 if activity.uid in user.friends:
@@ -88,14 +98,17 @@ def run_recommender_system(
                     out_messages.append(activity)
             # Build the newsfeed for the agent 
             user.newsfeed = build_feed(user, in_messages, out_messages)
+            # Collect the user and the actions so we can send them to the agent pool manager and analyzer
             users.append(user)
             passivities.extend(passive_actions)
             activities.extend(active_actions)
         
         if len(global_inventory) > 2000:
-            # Remove the oldest 1000 messages
+            # Remove the oldest 1000 messages so we don't run out of memory
             global_inventory = global_inventory[-1000:] 
-            
+
+        # Check for termination signal (we need two of them because we risk
+        # to miss the first one if we are busy processing data)
         if check_for_sigterm():
             close_process()
             break

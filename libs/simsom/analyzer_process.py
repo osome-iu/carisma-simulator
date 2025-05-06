@@ -76,7 +76,9 @@ def run_analyzer(
     # Bootstrap sync
     comm_world.Barrier()
 
-    def clean_termination():
+    # Function to terminate the process and print information
+    def clean_termination() -> None:
+        """Clean termination of the process"""
         print("- Analyzer >> GOAL REACHED, TERMINATING SIMULATION...", flush=True)
         comm_world.send("sigterm", dest=rank_index["recommender_system"])
         print("- Analyzer >> sent termination signal to recommender system", flush=True)
@@ -90,7 +92,9 @@ def run_analyzer(
 
         # Get data from policy filter
         data = comm_world.recv(source=rank_index["recommender_system"], status=status)
+        # Unpack the data
         activities, passivities = data
+        # Write the data to the files
         with open(
             file_path_activity, "a", newline="", encoding="utf-8"
         ) as out_act:
@@ -105,11 +109,15 @@ def run_analyzer(
                 csv_out_pas = csv.writer(out_pas)
                 for a in passivities:
                     csv_out_pas.writerow(a.write_action())
+
+        # Based on the method for convergence check if we should stop
         if message_count_target > 0:
             n_data += len(activities)
 
+            # Stop and terminate the process
             if n_data >= message_count_target:
                 clean_termination()
+                # Resize the output file to the number of messages
                 resize_output(message_count_target)
                 break
         else:
