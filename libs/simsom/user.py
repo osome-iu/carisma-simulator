@@ -104,7 +104,7 @@ class User:
             # If it's the first reshare reshared_original_id and reshared_id are the same
             message_reshared.reshared_id = target.aid
             message_reshared.reshared_original_id = target.aid
-        message_reshared.reshared_user_id = target.aid
+        message_reshared.reshared_user_id = target.uid
         # self.reshared_messages.append(message_reshared)
         self.repost_counter += 1
         return passive_actions, message_reshared
