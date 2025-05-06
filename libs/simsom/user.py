@@ -60,7 +60,7 @@ class User:
                 passive_actions.extend(passive_action)
             else:
                 actions.append(self.post_message())
-        # self.newsfeed = self.newsfeed[: self.cut_off]
+        self.newsfeed = self.newsfeed[: self.cut_off]
         return actions, passive_actions
 
     def reshare_message(self) -> None:

@@ -88,8 +88,8 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
             user_class=graph.vs[node.index]["utype"],
             post_per_day=int(graph.vs[node.index]["postperday"]),
             quality_params=eval(graph.vs[node.index]["qualitydistr"]),
-            friends=friends,
-            followers=followers,
+            friends=["u" + str(u) for u in friends],
+            followers=["u" + str(u) for u in followers],
         )
         users.append(user_i)
     return users
