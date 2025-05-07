@@ -39,7 +39,17 @@ def resize_output(size: int):
         index=False,
         encoding="utf-8",
     )
-
+    # get last user id from activity file so we can clean also the passivity file
+    last_user = df.tail(1).user_id.values[0]
+    df = pd.read_csv(file_path_passivity)
+    last_idx = df[df['user_id'] == last_user].last_valid_index()
+    df = df.loc[:last_idx]
+    df.to_csv(
+        file_path_passivity,
+        lineterminator="\n",
+        index=False,
+        encoding="utf-8",
+    )
 
 
 def run_analyzer(

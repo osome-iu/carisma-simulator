@@ -43,12 +43,43 @@ def run_recommender_system(
         n_out = int(len(out_messages) * out_perc)
         # Build the newsfeed and shuffle it
         new_feed = in_messages[:n_in] + out_messages[:n_out]
-        random.shuffle(new_feed)
+        new_feed = clean_feed(new_feed)
         # Cut off the newsfeed if needed
         if len(new_feed) > agent.cut_off:
             new_feed = new_feed[: agent.cut_off]
         agent.newsfeed = new_feed
         return agent.newsfeed
+
+    def clean_feed(newsfeed):
+        """
+        Clean the newsfeed for the agent removing duplicates
+        """
+        weight_dict = {}
+        # Sort messages and drop duplicates (reshare)
+        sorted_messages = sorted(newsfeed, key=lambda x: x.time, reverse=True)
+        message_filter_dict = {}
+        nan_parents = []
+        # Iterate to check if there are duplicated reshare messages
+        for message in sorted_messages:
+            if message.reshared_original_id == np.nan:
+                nan_parents.append(message)
+            else:
+                # check for duplicates and if they are present keep track of the weight (n of time they appear)
+                if message.reshared_original_id not in message_filter_dict:
+                    message_filter_dict[message.reshared_original_id] = message
+                    weight_dict[message.reshared_original_id] = 1
+                else:
+                    weight_dict[message.reshared_original_id] += 1
+        new_newsfeed = list(message_filter_dict.values()) + nan_parents
+
+        # Sort list temporally and based on the weight
+        new_newsfeed = sorted(new_newsfeed, key=lambda x: x.time, reverse=True)
+        new_newsfeed = sorted(
+            new_newsfeed,
+            key=lambda x: (weight_dict.get(x.reshared_original_id, 0), x.time),
+            reverse=True,
+        )
+        return new_newsfeed
 
     # Close the process cleanly
     def close_process():
