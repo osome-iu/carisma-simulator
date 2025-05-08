@@ -11,7 +11,7 @@ def run_recommender_system(
 ):
 
     # Verbose: use flush=True to print messages
-    print("- RecSys process >> started", flush=True)
+    # print("- RecSys process >> started", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -83,7 +83,7 @@ def run_recommender_system(
 
     # Close the process cleanly
     def close_process():
-        print("- RecSys >> termination signal, stopping simulation...", flush=True)
+        # print("- RecSys >> termination signal, stopping simulation...", flush=True)
 
         comm_world.send(("sigterm", 0), dest=rank_index["data_manager"])
         comm_world.send("sigterm", dest=rank_index["agent_pool_manager"])
@@ -148,4 +148,4 @@ def run_recommender_system(
         comm_world.send(users, dest=rank_index["agent_pool_manager"])
         # print("- RecSys >> data sent.", flush=True)
         
-    print("- RecSys >> finished", flush=True)
+    # print("- RecSys >> finished", flush=True)

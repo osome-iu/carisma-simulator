@@ -42,7 +42,7 @@ def run_data_manager(
 ):
 
     # Verbose: use flush=True to print messages
-    print("- Data manager >> started", flush=True)
+    # print("- Data manager >> started", flush=True)
 
     # Arch status object
     status = MPI.Status()
@@ -59,6 +59,9 @@ def run_data_manager(
 
     # Bootstrap sync
     comm_world.Barrier()
+    
+    print("Simulation started", flush=True)
+    
 
     while True:
 
@@ -82,10 +85,13 @@ def run_data_manager(
             # Unpicked agents count
             
             users_packs_batch = []
+            
+            # Since we risk to shuffle the users when we build the batch, we need to
+            # make sure we don't pick the same user twice
+            batch_size = min(batch_size, len(users) - len(selected_users))
 
             # Build the batch
             for _ in range(batch_size):
-
                 # Always pick the first user (round-robin style)
                 picked_user = users[0]
             
@@ -98,30 +104,31 @@ def run_data_manager(
                 # Get the in and out messages based on friends
                 active_actions_send = outgoing_messages[picked_user.uid]
                 passive_actions_send = outgoing_passivities[picked_user.uid]
+
                 # Add it to the batch
                 users_packs_batch.append((picked_user, active_actions_send, passive_actions_send))
                 
                 # TODO: Flush outgoing messages ????
                 outgoing_messages[picked_user.uid] = []
                 outgoing_passivities[picked_user.uid] = []
-                
-                # After we process all the users, we need to shuffle them
+
+                # Before we process all the users, we need to shuffle them
                 if len(selected_users) == len(users):
                     rnd.shuffle(users)
                     selected_users.clear()
-
                 
             comm_world.send(users_packs_batch, dest=rank_index["recommender_system"])
 
         elif msg == "ping_policy":
-            print("- Data manager >> ping policy")
+            continue
+            # print("- Data manager >> ping policy")
 
         elif msg == "sigterm":
-            print("- Data manager >> termination signal, stopping simulation...")
+            # print("- Data manager >> termination signal, stopping simulation...")
 
             # Flush pending incoming messages
             while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
                 _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
             comm_world.Barrier()
             break
-    print("- Data manager >> finished", flush=True)
+    # print("- Data manager >> finished", flush=True)

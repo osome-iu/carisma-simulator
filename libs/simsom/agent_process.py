@@ -16,7 +16,7 @@ def run_agent(
 ):
 
     # Verbose: use flush=True to print messages
-    print(f"- Agent process @{rank} >> started", flush=True)
+    # print(f"- Agent process @{rank} >> started", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -35,7 +35,7 @@ def run_agent(
 
         # Check if the data is a termination signal and break the loop propagating the sigterm
         if data == "sigterm":
-            print("- Agent process >> termination signal, stopping simulation...")
+            # print("- Agent process >> termination signal, stopping simulation...")
             comm_world.send(data, dest=rank_index["policy_filter"])
             # Flush pending incoming messages so we can exit cleanly
             while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):

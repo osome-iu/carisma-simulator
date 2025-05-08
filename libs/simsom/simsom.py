@@ -120,11 +120,18 @@ def main():
             comm_world=comm_world,
             rank=rank,
             rank_index=RANK_INDEX,
-            sliding_window_convergence=simulator_config["sliding_window_convergence"],
-            message_count_target=simulator_config["message_count_target"],
-            threshold_convergence=simulator_config["threshold_convergence"],
+            # Params for sliding window method
+            sliding_window_method=simulator_config["sliding_window_method"],
+            sliding_window_size=simulator_config["sliding_window_size"],
+            sliding_window_threshold=simulator_config["sliding_window_threshold"],
+            # Params for max target method
+            max_interactions_method=simulator_config["max_interactions_method"],
+            max_iteration_target=simulator_config["max_iteration_target"],
+            # Params for printing stuff during the execution
             verbose=simulator_config["verbose"],
             print_interval=simulator_config["print_interval"],
+            # Params for saving activities on disk
+            save_active_interactions=simulator_config["save_active_interactions"],
             save_passive_interactions=simulator_config["save_passive_interactions"]
         )
 

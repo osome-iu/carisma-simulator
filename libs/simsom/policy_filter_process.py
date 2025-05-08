@@ -10,7 +10,7 @@ def run_policy_filter(
 ):
 
     # Verbose: use flush=True to print messages
-    print("- Policy process >> started", flush=True)
+    # print("- Policy process >> started", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -25,7 +25,7 @@ def run_policy_filter(
 
         data = comm_world.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
         if data == "sigterm":
-            print("- Policy filter >> termination signal")
+            # print("- Policy filter >> termination signal")
 
             # Flush pending incoming messages
             while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
