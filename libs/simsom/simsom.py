@@ -127,6 +127,11 @@ def main():
             # Params for max target method
             max_interactions_method=simulator_config["max_interactions_method"],
             max_iteration_target=simulator_config["max_iteration_target"],
+            # Params for historical quality
+            ema_quality=simulator_config["ema_quality"],
+            ema_quality_convergence=simulator_config["ema_quality_convergence"],
+            # Number of users
+            n_users=len(users),
             # Params for printing stuff during the execution
             verbose=simulator_config["verbose"],
             print_interval=simulator_config["print_interval"],

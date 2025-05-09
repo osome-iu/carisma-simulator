@@ -144,7 +144,7 @@ def run_recommender_system(
             close_process()
             break
         
-        comm_world.send((activities, passivities), dest=rank_index["analyzer"])
+        comm_world.send((user, activities, passivities), dest=rank_index["analyzer"])
         comm_world.send(users, dest=rank_index["agent_pool_manager"])
         # print("- RecSys >> data sent.", flush=True)
         

@@ -4,8 +4,6 @@ Send termination signal to all processes when the simulation has converged.
 """
 
 import time
-from glob import glob
-from collections import Counter
 import csv
 import numpy as np
 from mpi4py import MPI
@@ -18,7 +16,7 @@ time_now = int(time.time())
 folder_path = f"files/{time_now}"
 file_path_activity = folder_path + "/activities.csv"
 file_path_passivity = folder_path + "/passivities.csv"
-
+rho = 0.8
 
 
 def resize_output(size: int):
@@ -51,66 +49,17 @@ def resize_output(size: int):
         encoding="utf-8",
     )
 
-    def sliding_window_convergence():
-        print()
+def update_quality(current_quality, overall_avg_quality) -> None:
+    """
+    Update quality using exponential moving average to ensure stable state at convergence
+    Forget the past slowly, i.e., new_quality = 0.8 * avg_quality(at t-1) + 0.2 * current_quality
+    """
 
-    def update_quality() -> None:
-        """
-        Update quality using exponential moving average to ensure stable state at convergence
-        Forget the past slowly, i.e., new_quality = 0.8 * avg_quality(at t-1) + 0.2 * current_quality
-        """
-
-        # new_quality = (rho * quality + (1 - rho) * measure_average_quality())
-        # self.quality_diff = (
-        #     abs(new_quality - self.quality) / self.quality if self.quality > 0 else 0
-        # )
-        # self.quality = new_quality
-        print()
-
-    def measure_average_quality(self) -> float:
-        """
-        Calculates the average quality across human messages in system
-        """
-
-        # total = 0
-        # count = 0
-
-        # # keep track of no. messages for verbose debug
-        # human_message_ids = []
-        # for u in self.users:
-        #     message_ids, _, _ = self.users[u].user_feed
-        #     message_ids = list(message_ids)
-        #     for message_id in message_ids:
-        #         total += self.all_messages[message_id].quality
-        #         count += 1
-        #     human_message_ids += message_ids
-
-        # self.num_human_messages = count
-        # self.num_human_messages_unique = len(set(human_message_ids))
-        # return total / count if count > 0 else 0
-
-    def measure_diversity(self) -> int:
-        """
-        Calculates the diversity of the system using entropy (in terms of unique messages)
-        (Invoke only after self._return_all_message_info() is called)
-        """
-
-        # humanshares = []
-        # for human_id in self.users:
-        #     newsfeed = self.users[human_id].user_feed
-        #     message_ids, _, _ = newsfeed
-        #     for message_id in message_ids:
-        #         humanshares += [message_id]
-        # message_counts = Counter(humanshares)
-        # # return a list of [(messageid, count)], sorted by id
-        # count_byid = sorted(dict(message_counts).items())
-        # humanshares = np.array([m[1] for m in count_byid])
-
-        # hshare_pct = np.divide(humanshares, sum(humanshares))
-        # diversity = utils.entropy(hshare_pct) * -1
-        # # Note that (np.sum(humanshares)+np.sum(botshares)) !=self.num_messages because a message can be shared multiple times
-        # return diversity
-
+    new_quality = (rho * current_quality + (1 - rho) * overall_avg_quality)
+    quality_diff = (
+        abs(new_quality - current_quality) / current_quality if current_quality > 0 else 0
+    )
+    return quality_diff, new_quality
 
 def run_analyzer(
     comm_world: MPI.Intercomm,
@@ -123,12 +72,18 @@ def run_analyzer(
     # Params for max target method
     max_interactions_method: bool,
     max_iteration_target: int,
+    # Params for exponential moving average method
+    ema_quality: bool,
+    ema_quality_convergence: float,
+    # Number of users to be used for the simulation
+    n_users: int,
     # Params for printing stuff during the execution
     verbose: bool,
     print_interval: int,
     # Params for saving activities on disk
     save_active_interactions: bool=True,
-    save_passive_interactions: bool=True    
+    save_passive_interactions: bool=True,  
+
 ):
     """
     Function that takes care of calculating the convergence condition and stop execution
@@ -145,14 +100,35 @@ def run_analyzer(
     status = MPI.Status()
 
     n_data = 0                  # keep track of the number of messages
+    intermediate_n_user = 0     # keep track of the number of users
+    interval_quality = 0        # keep track of the quality of the messages for interval printing
     quality_sum = 0             # keep track of the quality of the messages
     count = 0                   # keep track of the number of messages for verbose debug
     current_quality_list = []   # list of qualities for the sliding window
     previous_quality = None     # quality of the previous window
+    feeds = {}                  # dictionary of feeds for the users, this is used to calculate diversity, quality, etc.
+    users = []                  # list of users for the ema quality
+    current_quality = 1         # value to calculate the current quality each N iterations (or after T time)
     
-    if max_interactions_method and sliding_window_method:
+
+    # Files for writing the activities
+    csv_out_act = None
+    out_act = None
+    
+    if max_interactions_method and sliding_window_method and ema_quality:
         # Since we need to choose one of the two methods, we will use the max_interactions_method
         sliding_window_method = False
+        ema_quality = False
+    
+    if max_interactions_method:
+        exec_name = 'Max iterations'
+    elif sliding_window_method:
+        exec_name = 'Sliding windows'
+    else:
+        exec_name = 'Exponential moving average'
+
+    
+    print(f"Execution with {exec_name}")
     
     # Initialize files
     simtools.init_files(folder_path, file_path_activity, file_path_passivity)
@@ -177,31 +153,27 @@ def run_analyzer(
         # Get data from policy filter
         data = comm_world.recv(source=rank_index["recommender_system"], status=status)
         # Unpack the data
-        activities, passivities = data
+        user, activities, passivities = data
         # Count the number of messages
         n_data += len(activities)
+        intermediate_n_user += 1
 
         # Write the data to the files
         # Write the active interactions (post/repost)
         if save_active_interactions:
-            with open(
-                file_path_activity, "a", newline="", encoding="utf-8"
-            ) as out_act:
-                csv_out_act = csv.writer(out_act)
-                for m in activities:
-                    quality_sum += m.quality
-                    count += 1
-                    csv_out_act.writerow(m.write_action())
-        else:
+            out_act = open(file_path_activity, "a", newline="", encoding="utf-8")
+            csv_out_act = csv.writer(out_act)
+        try:
             for m in activities:
                 quality_sum += m.quality
+                interval_quality += m.quality
                 count += 1
+                if csv_out_act:
+                    csv_out_act.writerow(m.write_action())
+        finally:
+            if out_act:
+                out_act.close()
     
-        if verbose:
-            if (count >= print_interval) & (n_data > 0):
-                count = 0
-                print(f"Intermediate stats: quality --> {round(quality_sum / n_data, 2)}", flush=True)
-
         # Write the passive interactions (view)
         if save_passive_interactions:
             with open(
@@ -210,6 +182,12 @@ def run_analyzer(
                 csv_out_pas = csv.writer(out_pas)
                 for a in passivities:
                     csv_out_pas.writerow(a.write_action())
+
+        if verbose:
+            if intermediate_n_user % print_interval == 0:
+                print(f"Intermediate stats after {intermediate_n_user} users: interval quality --> {round(interval_quality / count, 2)}", flush=True)
+                count = 0
+                interval_quality = 0
 
         # Based on the method for convergence check if we should stop
         if max_interactions_method:
@@ -246,3 +224,19 @@ def run_analyzer(
                 # Update the previous quality
                 previous_quality = current_quality
                 current_quality_list = []
+        # Use the convergence with exponential moving average
+        elif ema_quality:
+            users.append(user)
+            feeds[user.uid] = user.newsfeed
+            if len(users) == n_users:
+                users = []
+                quality_diff, new_quality = update_quality(current_quality=current_quality, overall_avg_quality=quality_sum / n_data)
+                current_quality = new_quality
+                if quality_diff <= ema_quality_convergence:
+                    clean_termination()
+                    # Resize the output file to the number of messages
+                    resize_output(max_iteration_target)
+                    print("Average quality:", round(quality_sum / n_data, 2), flush=True)
+                    break
+                else:
+                    print(f"Quality diff after {n_data} messages: {quality_diff}")
