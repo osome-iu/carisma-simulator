@@ -61,6 +61,19 @@ def update_quality(current_quality, overall_avg_quality) -> None:
     )
     return quality_diff, new_quality
 
+def enforce_single_convergence_method(**methods) -> dict:
+    """
+    Enforce a single convergence method to be used
+    If multiple methods are set to True, the first one in the list will be used
+
+    Returns:
+        dict: dictionary with the selected method
+    """
+    priority = ['max_interactions_method', 'sliding_window_method', 'ema_quality_method']
+    active = [key for key in priority if methods.get(key, False)]
+    selected = active[0] if active else priority[0]
+    return {key: key == selected for key in priority}
+
 def run_analyzer(
     comm_world: MPI.Intercomm,
     rank: int,
@@ -73,7 +86,7 @@ def run_analyzer(
     max_interactions_method: bool,
     max_iteration_target: int,
     # Params for exponential moving average method
-    ema_quality: bool,
+    ema_quality_method: bool,
     ema_quality_convergence: float,
     # Number of users to be used for the simulation
     n_users: int,
@@ -94,9 +107,6 @@ def run_analyzer(
         FILE_PATH (str): path to the file where the activities are saved
     """
 
-    # Verbose: use flush=True to print messages
-    # print("- Analyzer >> started", flush=True)
-
     status = MPI.Status()
 
     n_data = 0                  # keep track of the number of messages
@@ -109,16 +119,18 @@ def run_analyzer(
     feeds = {}                  # dictionary of feeds for the users, this is used to calculate diversity, quality, etc.
     users = []                  # list of users for the ema quality
     current_quality = 1         # value to calculate the current quality each N iterations (or after T time)
+    csv_out_act = None
     
 
-    # Files for writing the activities
-    csv_out_act = None
-    out_act = None
-    
-    if max_interactions_method and sliding_window_method and ema_quality:
-        # Since we need to choose one of the two methods, we will use the max_interactions_method
-        sliding_window_method = False
-        ema_quality = False
+    convergence_flags = enforce_single_convergence_method(
+        max_interactions_method=max_interactions_method,
+        sliding_window_method=sliding_window_method,
+        ema_quality_method=ema_quality_method
+    )
+
+    max_interactions_method = convergence_flags['max_interactions_method']
+    sliding_window_method = convergence_flags['sliding_window_method']
+    ema_quality_method = convergence_flags['ema_quality_method']
     
     if max_interactions_method:
         exec_name = 'Max iterations'
@@ -217,7 +229,7 @@ def run_analyzer(
                     if abs(current_quality - previous_quality) <= sliding_window_threshold:
                         clean_termination()
                         # Resize the output file to the number of messages
-                        resize_output(n_data)
+                        # resize_output(n_data)
                         print("Threshold reached:", abs(current_quality - previous_quality), flush=True)
                         print("Average quality:", round(quality_sum / n_data, 2), flush=True)
                         break
@@ -225,7 +237,7 @@ def run_analyzer(
                 previous_quality = current_quality
                 current_quality_list = []
         # Use the convergence with exponential moving average
-        elif ema_quality:
+        elif ema_quality_method:
             users.append(user)
             feeds[user.uid] = user.newsfeed
             if len(users) == n_users:
@@ -235,7 +247,7 @@ def run_analyzer(
                 if quality_diff <= ema_quality_convergence:
                     clean_termination()
                     # Resize the output file to the number of messages
-                    resize_output(max_iteration_target)
+                    # resize_output(max_iteration_target)
                     print("Average quality:", round(quality_sum / n_data, 2), flush=True)
                     break
                 else:
