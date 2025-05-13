@@ -15,7 +15,7 @@ class Message(Action):
         mid: int,
         uid: int,
         quality_params: tuple,
-        topic: int,
+        topic: list,
         is_shadow: bool,
         exposure: list = [],
     ) -> None:

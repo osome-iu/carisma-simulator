@@ -1,4 +1,5 @@
 from mpi4py import MPI
+from sklearn.metrics.pairwise import cosine_similarity
 import time
 import numpy as np
 import random
@@ -27,6 +28,18 @@ def run_recommender_system(
             return True
         return False
 
+    def sort_based_topics(messages: list, agent) -> list:
+        user_topics = np.array(agent.user_topics).reshape(1, -1)    # Shape: (1, 300 [default])
+        messages = np.array(messages)                               # Shape: (n_messages, 300 [default])
+
+        similarities = cosine_similarity(user_topics, messages)[0]
+
+        # Pair messages with similarity and sort by score
+        ranked = sorted(zip(similarities, messages), key=lambda x: x[0], reverse=True)
+        
+        # Return the messages sorted
+        return [msg for _, msg in ranked]
+
 
     def build_feed(agent, in_messages, out_messages, in_perc=0.5, out_perc=0.5) -> list:
         """
@@ -35,9 +48,10 @@ def run_recommender_system(
         # If there are no messages, return an empty list
         if not in_messages and not out_messages:
             return []
-        # Shuffle the messages to randomize the order
-        random.shuffle(in_messages)
-        random.shuffle(out_messages)
+        # Sort the messages based on topics
+        in_messages = sort_based_topics(in_messages, agent)
+        out_messages = sort_based_topics(out_messages, agent)
+
         # Get percentages of messages to keep from in and out
         n_in = int(len(in_messages) * in_perc)
         n_out = int(len(out_messages) * out_perc)
@@ -146,6 +160,3 @@ def run_recommender_system(
         
         comm_world.send((user, activities, passivities), dest=rank_index["analyzer"])
         comm_world.send(users, dest=rank_index["agent_pool_manager"])
-        # print("- RecSys >> data sent.", flush=True)
-        
-    # print("- RecSys >> finished", flush=True)
