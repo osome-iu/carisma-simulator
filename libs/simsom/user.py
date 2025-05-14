@@ -8,7 +8,7 @@ import random
 import pandas as pd
 from view import View
 
-def generate_user_topics(total_topics=300, min_active=5, max_active=15):
+def generate_user_topics(total_topics=15, min_active=5, max_active=15):
     # Initialize all topics to 0
     topics = [0] * total_topics
 
@@ -16,9 +16,9 @@ def generate_user_topics(total_topics=300, min_active=5, max_active=15):
     num_active = random.randint(min_active, max_active)
     active_topic_indices = random.sample(range(total_topics), num_active)
 
-    # Assign random interest levels from 1 to 10 for topics
+    # Assign random interest levels from 0 to 1 for topics
     for idx in active_topic_indices:
-        topics[idx] = random.randint(1, 10)
+        topics[idx] = random.random()
     return topics 
 
 
@@ -100,7 +100,7 @@ class User:
             mid="R" + str(self.repost_counter) + "_" + str(self.uid),
             uid=self.uid,
             quality_params=None,
-            topic=target.topic,
+            topics=target.topics,
             is_shadow=self.is_shadow,
             exposure=target.exposure,
         )
@@ -134,7 +134,7 @@ class User:
         message_created = Message(
             mid="P" + str(self.post_counter) + "_" + str(self.uid),
             uid=self.uid,
-            topic=self.generate_message_vector(self.user_topics),
+            topics=self.generate_message_vector(self.user_topics),
             is_shadow=self.is_shadow,
             quality_params=self.quality_params,
         )
@@ -142,34 +142,45 @@ class User:
         self.post_counter += 1
         return message_created
 
-    def generate_message_vector(user_vector, max_topics=5, noise_level=0.2):
+    def generate_message_vector(self, user_vector: list, max_topics:int=5, noise_level:float=0.2) -> list:
+        """function to generate a message vector based on the user's interests.
+        The function randomly selects a number of topics from the user's interests
+        and assigns a value to each topic based on the user's interest level.
+        The function also adds a possible noise topic from outside the user's interest scope.
+
+        Args:
+            user_vector (list): vector of the user's interests
+            max_topics (int): number of max topics for each message. Defaults to 5.
+            noise_level (float): level of out of scope content for each message. Defaults to 0.2.
+
+        Returns:
+            list: return the vector of interest for message
+        """
         total_topics = len(user_vector)
         message_vector = [0.0] * total_topics
 
-        # Get indices of non-zero interest
         interested_topics = [(i, score) for i, score in enumerate(user_vector) if score > 0]
 
-        # Normalize interest scores to use as probabilities
+        # Use interest scores as weights for sampling
         indices, weights = zip(*interested_topics)
         total_weight = sum(weights)
         probabilities = [w / total_weight for w in weights]
 
-        # Sample a few main topics based on interest
+        # Sample topics based on interest weights
         num_topics = random.randint(1, max_topics)
         chosen_topics = random.choices(indices, weights=probabilities, k=num_topics)
 
+        # Assign values to sampled topics (based on interest, scaled by some fuzziness)
         for topic in set(chosen_topics):
-            # Assign message intensity proportional to user interest, with some randomness
             base_interest = user_vector[topic]
-            variation = random.uniform(0.5, 1.0)  # we can tune this based on real world data or something
-            message_vector[topic] = round(base_interest * variation, 2)
+            variation = random.uniform(0.5, 1.0)  # tune as needed
+            message_vector[topic] = round(base_interest * variation, 3)
 
-        # Add noise --> if we want we can generate some noise so we post something's topic is 
-        # out of our scope
+        # Add a possible noise topic from outside the user's interest scope
         if random.random() < noise_level:
             noise_topic = random.randint(0, total_topics - 1)
             if user_vector[noise_topic] == 0:
-                message_vector[noise_topic] = round(random.uniform(0.1, 1.0), 2)
+                message_vector[noise_topic] = round(random.uniform(0.1, 1.0), 3)
 
         return message_vector
 

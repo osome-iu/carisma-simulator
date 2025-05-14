@@ -3,6 +3,27 @@ from sklearn.metrics.pairwise import cosine_similarity
 import time
 import numpy as np
 import random
+from collections import Counter
+
+def calculate_cosine_similarity(list_a: list, list_b: list) -> float:
+    """
+    Calculate the cosine similarity between two lists.
+    """
+
+    a_vals = Counter(list_a)
+    b_vals = Counter(list_b)
+    
+    # convert to word-vectors
+    words  = list(a_vals.keys() | b_vals.keys())
+    a_vect = [a_vals.get(word, 0) for word in words]       
+    b_vect = [b_vals.get(word, 0) for word in words]        
+
+    # find cosine
+    len_a  = sum(av*av for av in a_vect) ** 0.5             
+    len_b  = sum(bv*bv for bv in b_vect) ** 0.5             
+    dot    = sum(av*bv for av,bv in zip(a_vect, b_vect))   
+    cosine = dot / (len_a * len_b) 
+    return cosine
 
 def run_recommender_system(
     comm_world: MPI.Intercomm,
@@ -29,16 +50,19 @@ def run_recommender_system(
         return False
 
     def sort_based_topics(messages: list, agent) -> list:
-        user_topics = np.array(agent.user_topics).reshape(1, -1)    # Shape: (1, 300 [default])
-        messages = np.array(messages)                               # Shape: (n_messages, 300 [default])
+        if len(messages) == 0:
+            return messages
+        user_topics = agent.user_topics
 
-        similarities = cosine_similarity(user_topics, messages)[0]
+        # Calculate the cosine similarity between the user's topics and the messages
+        similarities = [(calculate_cosine_similarity(user_topics, message.topics), message) for message in messages]
 
-        # Pair messages with similarity and sort by score
-        ranked = sorted(zip(similarities, messages), key=lambda x: x[0], reverse=True)
-        
-        # Return the messages sorted
+        # Sort messages by similarity score, descending
+        ranked = sorted(similarities, key=lambda x: x[0], reverse=True)
+
+        # Return just the sorted messages
         return [msg for _, msg in ranked]
+
 
 
     def build_feed(agent, in_messages, out_messages, in_perc=0.5, out_perc=0.5) -> list:
