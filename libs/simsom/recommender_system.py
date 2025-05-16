@@ -73,8 +73,8 @@ def run_recommender_system(
         if not in_messages and not out_messages:
             return []
         # Sort the messages based on topics
-        in_messages = sort_based_topics(in_messages, agent)
-        out_messages = sort_based_topics(out_messages, agent)
+        # in_messages = sort_based_topics(in_messages, agent)
+        # out_messages = sort_based_topics(out_messages, agent)
 
         # Get percentages of messages to keep from in and out
         n_in = int(len(in_messages) * in_perc)
@@ -82,6 +82,7 @@ def run_recommender_system(
         # Build the newsfeed and shuffle it
         new_feed = in_messages[:n_in] + out_messages[:n_out]
         new_feed = clean_feed(new_feed)
+        new_feed = sort_based_topics(new_feed, agent)
         # Cut off the newsfeed if needed
         if len(new_feed) > agent.cut_off:
             new_feed = new_feed[: agent.cut_off]
@@ -99,8 +100,9 @@ def run_recommender_system(
         nan_parents = []
         # Iterate to check if there are duplicated reshare messages
         for message in sorted_messages:
-            if message.reshared_original_id == np.nan:
+            if np.isnan(message.reshared_original_id):
                 nan_parents.append(message)
+                # print(nan_parents)
             else:
                 # check for duplicates and if they are present keep track of the weight (n of time they appear)
                 if message.reshared_original_id not in message_filter_dict:

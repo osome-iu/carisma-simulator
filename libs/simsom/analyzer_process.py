@@ -6,6 +6,8 @@ Send termination signal to all processes when the simulation has converged.
 import time
 import csv
 import numpy as np
+from collections import Counter
+from typing import Tuple, List
 from mpi4py import MPI
 import simtools
 import time
@@ -73,6 +75,32 @@ def enforce_single_convergence_method(**methods) -> dict:
     active = [key for key in priority if methods.get(key, False)]
     selected = active[0] if active else priority[0]
     return {key: key == selected for key in priority}
+
+
+def entropy(x: List[float]) -> float:
+    return np.sum(x * np.log(x))
+
+def measure_diversity(self) -> int:
+        """
+        Calculates the diversity of the system using entropy (in terms of unique messages)
+        (Invoke only after self._return_all_message_info() is called)
+        """
+
+        humanshares = []
+        for human_id in self.users:
+            newsfeed = self.users[human_id].user_feed
+            message_ids, _, _ = newsfeed
+            for message_id in message_ids:
+                humanshares += [message_id]
+        message_counts = Counter(humanshares)
+        # return a list of [(messageid, count)], sorted by id
+        count_byid = sorted(dict(message_counts).items())
+        humanshares = np.array([m[1] for m in count_byid])
+
+        hshare_pct = np.divide(humanshares, sum(humanshares))
+        diversity = entropy(hshare_pct) * -1
+        # Note that (np.sum(humanshares)+np.sum(botshares)) !=self.num_messages because a message can be shared multiple times
+        return diversity
 
 def run_analyzer(
     comm_world: MPI.Intercomm,
