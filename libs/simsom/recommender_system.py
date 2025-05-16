@@ -100,7 +100,7 @@ def run_recommender_system(
         nan_parents = []
         # Iterate to check if there are duplicated reshare messages
         for message in sorted_messages:
-            if np.isnan(message.reshared_original_id):
+            if message.reshared_original_id is None:
                 nan_parents.append(message)
                 # print(nan_parents)
             else:
