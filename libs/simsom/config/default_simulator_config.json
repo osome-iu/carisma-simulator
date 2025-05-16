@@ -1,10 +1,15 @@
 {
-    "message_count_target": 10000, 
-    "save_passive_interaction": true,
     "data_manager_batchsize": 10,
-    "sliding_window_convergence": 1000,
-    "threshold_convergence": 0.01,
+    "sliding_window_method": false,
+    "sliding_window_size": 1000,
+    "sliding_window_threshold": 0.0001,
+    "max_interactions_method": false,
+    "max_iteration_target": 10000, 
+    "ema_quality_method": true,
+    "ema_quality_convergence": 0.1,
     "filter_illegal": true,
     "verbose": true,
-    "print_interval": 1000
+    "print_interval": 100,
+    "save_active_interactions": true,
+    "save_passive_interactions": true
 }

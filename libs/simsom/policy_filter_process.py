@@ -9,25 +9,31 @@ def run_policy_filter(
     rank_index: dict,
 ):
 
+    # Verbose: use flush=True to print messages
+    # print("- Policy process >> started", flush=True)
+
     # Status of the processes
     status = MPI.Status()
+
+    # DEBUG COUNTER
+    count = 0
 
     # Bootstrap sync
     comm_world.Barrier()
 
     while True:
 
-        # Wait for a batch of (agents, in_messages) to process
-        user_packs_batch = comm_world.recv(
-            source=rank_index["data_manager"], status=status
-        )
+        data = comm_world.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+        if data == "sigterm":
+            # print("- Policy filter >> termination signal")
 
-        # Check for termination signal
-        if user_packs_batch == "sigterm":
-            comm_world.send("sigterm", dest=rank_index["agent_pool_manager"])
+            # Flush pending incoming messages
+            while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
+                _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            comm_world.Barrier()
             break
 
-        processed_batch = user_packs_batch
+        count += 1
 
-        # Redirect the processed batch to agent pool manager
-        comm_world.send(processed_batch, dest=rank_index["agent_pool_manager"])
+        if count == 10:
+            comm_world.send(("ping_policy", 0), dest=rank_index["data_manager"])

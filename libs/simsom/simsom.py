@@ -27,32 +27,34 @@ import simtools
 import argparse
 
 from data_manager_process import run_data_manager
-from convergence_monitor_process import run_convergence_monitor
+from analyzer_process import run_analyzer
 from policy_filter_process import run_policy_filter
 from agent_pool_manager_process import run_agent_pool_manager
 from agent_process import run_agent
+from recommender_system import run_recommender_system
 
 
 # Configuration constants
 RANK_INDEX = {
     "data_manager": 0,
-    "convergence_monitor": 1,
-    "policy_filter": 2,
+    "recommender_system": 1,
+    "analyzer": 2,
     "agent_pool_manager": 3,
-    "agent_handler": 4,
+    "policy_filter": 4,
+    "agent_handler": 5,
 }
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--network_spec",
     type=str,
-    default="./config/default_network_config.json",
+    default="config/default_network_config.json",
     help="File that contains configuration for the network",
 )
 parser.add_argument(
     "--simulator_spec",
     type=str,
-    default="./config/default_simulator_config.json",
+    default="config/default_simulator_config.json",
     help="File that contains configuration for the simulation",
 )
 
@@ -82,34 +84,19 @@ def main():
         )
     )
 
-    if size < 5:
+    if size < 6:
         if rank == 0:
-            print("Error: This program requires at least 5 processes")
+            print("Error: This program requires at least 6 processes")
         sys.exit(1)
 
     if rank == RANK_INDEX["data_manager"]:
         run_data_manager(
             users=users,
-            message_count_target=simulator_config["message_count_target"],
             comm_world=comm_world,
             rank=rank,
             size=size,
             rank_index=RANK_INDEX,
-            filter_illegal=simulator_config["filter_illegal"],
             batch_size=simulator_config["data_manager_batchsize"],
-            save_passive_interaction=simulator_config["save_passive_interaction"],
-        )
-
-    elif rank == RANK_INDEX["convergence_monitor"]:
-        run_convergence_monitor(
-            comm_world=comm_world,
-            rank=rank,
-            rank_index=RANK_INDEX,
-            sliding_window_convergence=simulator_config["sliding_window_convergence"],
-            message_count_target=simulator_config["message_count_target"],
-            convergence_param=simulator_config["threshold_convergence"],
-            verbose=simulator_config["verbose"],
-            print_interval=simulator_config["print_interval"],
         )
 
     elif rank == RANK_INDEX["policy_filter"]:
@@ -118,6 +105,39 @@ def main():
             rank=rank,
             size=size,
             rank_index=RANK_INDEX,
+        )
+
+    elif rank == RANK_INDEX["recommender_system"]:
+        run_recommender_system(
+            comm_world=comm_world,
+            rank=rank,
+            size=size,
+            rank_index=RANK_INDEX,
+        )
+
+    elif rank == RANK_INDEX["analyzer"]:
+        run_analyzer(
+            comm_world=comm_world,
+            rank=rank,
+            rank_index=RANK_INDEX,
+            # Params for sliding window method
+            sliding_window_method=simulator_config["sliding_window_method"],
+            sliding_window_size=simulator_config["sliding_window_size"],
+            sliding_window_threshold=simulator_config["sliding_window_threshold"],
+            # Params for max target method
+            max_interactions_method=simulator_config["max_interactions_method"],
+            max_iteration_target=simulator_config["max_iteration_target"],
+            # Params for historical quality
+            ema_quality_method=simulator_config["ema_quality_method"],
+            ema_quality_convergence=simulator_config["ema_quality_convergence"],
+            # Number of users
+            n_users=len(users),
+            # Params for printing stuff during the execution
+            verbose=simulator_config["verbose"],
+            print_interval=simulator_config["print_interval"],
+            # Params for saving activities on disk
+            save_active_interactions=simulator_config["save_active_interactions"],
+            save_passive_interactions=simulator_config["save_passive_interactions"]
         )
 
     elif rank == RANK_INDEX["agent_pool_manager"]:

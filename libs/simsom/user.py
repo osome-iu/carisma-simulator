@@ -8,6 +8,19 @@ import random
 import pandas as pd
 from view import View
 
+def generate_user_topics(total_topics=15, min_active=5, max_active=15):
+    # Initialize all topics to 0
+    topics = [0] * total_topics
+
+    # Randomly select which topics will be used for the user
+    num_active = random.randint(min_active, max_active)
+    active_topic_indices = random.sample(range(total_topics), num_active)
+
+    # Assign random interest levels from 0 to 1 for topics
+    for idx in active_topic_indices:
+        topics[idx] = random.random()
+    return topics 
+
 
 class User:
     def __init__(
@@ -32,10 +45,7 @@ class User:
         self.post_counter = 0
         self.repost_counter = 0
         self.view_counter = 0
-        user_description = []
-        for _ in range(random.randrange(1, 6)):
-            user_description.append(random.randrange(0, 5))
-        self.user_description = list(set(user_description))
+        self.user_topics = generate_user_topics()
         self.is_suspended = False
         self.is_shadow = False
         self.mu = 0.5
@@ -90,7 +100,7 @@ class User:
             mid="R" + str(self.repost_counter) + "_" + str(self.uid),
             uid=self.uid,
             quality_params=None,
-            topic=target.topic,
+            topics=target.topics,
             is_shadow=self.is_shadow,
             exposure=target.exposure,
         )
@@ -104,7 +114,7 @@ class User:
             # If it's the first reshare reshared_original_id and reshared_id are the same
             message_reshared.reshared_id = target.aid
             message_reshared.reshared_original_id = target.aid
-        message_reshared.reshared_user_id = target.aid
+        message_reshared.reshared_user_id = target.uid
         # self.reshared_messages.append(message_reshared)
         self.repost_counter += 1
         return passive_actions, message_reshared
@@ -124,13 +134,56 @@ class User:
         message_created = Message(
             mid="P" + str(self.post_counter) + "_" + str(self.uid),
             uid=self.uid,
-            topic=random.choice(self.user_description),
+            topics=self.generate_message_vector(self.user_topics),
             is_shadow=self.is_shadow,
             quality_params=self.quality_params,
         )
         # self.shared_messages.append(message_created)
         self.post_counter += 1
         return message_created
+
+    def generate_message_vector(self, user_vector: list, max_topics:int=5, noise_level:float=0.2) -> list:
+        """function to generate a message vector based on the user's interests.
+        The function randomly selects a number of topics from the user's interests
+        and assigns a value to each topic based on the user's interest level.
+        The function also adds a possible noise topic from outside the user's interest scope.
+
+        Args:
+            user_vector (list): vector of the user's interests
+            max_topics (int): number of max topics for each message. Defaults to 5.
+            noise_level (float): level of out of scope content for each message. Defaults to 0.2.
+
+        Returns:
+            list: return the vector of interest for message
+        """
+        total_topics = len(user_vector)
+        message_vector = [0.0] * total_topics
+
+        interested_topics = [(i, score) for i, score in enumerate(user_vector) if score > 0]
+
+        # Use interest scores as weights for sampling
+        indices, weights = zip(*interested_topics)
+        total_weight = sum(weights)
+        probabilities = [w / total_weight for w in weights]
+
+        # Sample topics based on interest weights
+        num_topics = random.randint(1, max_topics)
+        chosen_topics = random.choices(indices, weights=probabilities, k=num_topics)
+
+        # Assign values to sampled topics (based on interest, scaled by some fuzziness)
+        for topic in set(chosen_topics):
+            base_interest = user_vector[topic]
+            variation = random.uniform(0.5, 1.0)  # tune as needed
+            message_vector[topic] = round(base_interest * variation, 3)
+
+        # Add a possible noise topic from outside the user's interest scope
+        if random.random() < noise_level:
+            noise_topic = random.randint(0, total_topics - 1)
+            if user_vector[noise_topic] == 0:
+                message_vector[noise_topic] = round(random.uniform(0.1, 1.0), 3)
+
+        return message_vector
+
 
     def __str__(self) -> str:
         return "\n".join(
@@ -145,6 +198,6 @@ class User:
                 f"- Feed: {self.newsfeed}",
                 f"- Friends: {self.friends}",
                 f"- Followers: {self.followers}",
-                f"- Description: {self.user_description}",
+                f"- Description: {self.user_topics}",
             ]
         )

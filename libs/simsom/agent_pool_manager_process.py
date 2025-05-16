@@ -5,6 +5,7 @@ Main task is to dispatch User/Agent objects to agent processes.
 
 from mpi4py import MPI
 import random as rnd
+import time
 
 
 def run_agent_pool_manager(
@@ -14,51 +15,52 @@ def run_agent_pool_manager(
     rank_index: dict,
 ):
 
-    # Ranks of all available agent handler
-    agent_handlers_ranks = list(range(rank_index["agent_handler"], size))
+    # Verbose: use flush=True to print messages
+    # print("- Agent pool manager >> started", flush=True)
 
     # Status of the processes
     status = MPI.Status()
+
+    # Ranks of all available agent handler
+    agent_handlers_ranks = list(range(rank_index["agent_handler"], size))
+    # print("- Agent Pool Manager >> agent process ranks", agent_handlers_ranks, flush=True)
 
     # Bootstrap sync
     comm_world.Barrier()
 
     while True:
+        
+        # Get data from recommender system process
+        comm_world.send(
+            "ping_agent_pool_manager",
+            dest=rank_index["recommender_system"],
+        )
 
-        # Get data from policy filter
-        user_packs_batch = comm_world.recv(
-            source=rank_index["policy_filter"],
+        # Wait for data from recommender system process
+        data = comm_world.recv(
+            source=rank_index["recommender_system"],
             status=status,
         )
 
         # Check for termination
-        if user_packs_batch == "sigterm":
+        if data == "sigterm":
+            # Send termination signal to all agent handlers and print message
+            # print("- Agent Pool Manager >> termination signal", flush=True)
+            for i in range(rank_index["agent_handler"], size):
+                comm_world.send("sigterm", dest=i)
+
+            # Flush pending incoming messages so we can exit cleanly
+            while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
+                _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            comm_world.Barrier()
             break
 
+        # If is not termination signal, dispatch data to agent handlers
         dispatch_requests = []
 
-        # Dispatch all the agent packs
-        while user_packs_batch:
-
-            # Pick agent pack from the batch
-            user_pack = user_packs_batch.pop()
-
-            # Pick handler at random with replacement
+        for user in data:
             handler_rank = rnd.choice(agent_handlers_ranks)
-            # NOTE: The same handler could be issued with more than
-            # one agent pack at a time that will be processed when ready.
-
-            # Non-blocking dispatch
-            req = comm_world.isend(
-                user_pack,
-                dest=handler_rank,
-            )
-
+            req = comm_world.isend(user, dest=handler_rank)
             dispatch_requests.append(req)
 
-        # Wait for all agent packs dispatched
         MPI.Request.waitall(dispatch_requests)
-
-    # Handlers shutdown
-    for i in range(rank_index["agent_handler"], size):
-        comm_world.send("sigterm", dest=i)
