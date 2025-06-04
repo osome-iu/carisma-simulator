@@ -153,10 +153,11 @@ def run_recommender_system(
         # print("- RecSys >> data received.", flush=True)
         # print(data)
         users = []
+        users_with_time =[]
         passivities = []
         activities = []
         # Unpack the data and iterate over the contents
-        for user , active_actions, passive_actions in data:
+        for user, active_actions, passive_actions, current_time in data:
             # Get the message from inside and outside the network
             in_messages = []
             out_messages = []
@@ -170,13 +171,25 @@ def run_recommender_system(
             # Build the newsfeed for the agent 
             user.newsfeed = build_feed(user, in_messages, out_messages)
             # Collect the user and the actions so we can send them to the agent pool manager and analyzer
-            users.append(user)
+            users_with_time.append((user, current_time)) #appending current_time as well 
             passivities.extend(passive_actions)
             activities.extend(active_actions)
         
         if len(global_inventory) > 2000:
             # Remove the oldest 1000 messages so we don't run out of memory
             global_inventory = global_inventory[-1000:] 
+        
+        # Clean newsfeeds of messages from suspended/terminated users
+        suspended_ids = set(
+            user.uid for user, _ in users_with_time if user.is_suspended or user.is_terminated
+        )
+        
+        # Clean the feeds in-place and rebuild the cleaned 'users' list
+        users = []
+        for user, current_time in users_with_time:
+            if hasattr(user, "newsfeed"):
+                user.newsfeed = [msg for msg in user.newsfeed if msg.uid not in suspended_ids]
+            users.append(user)  # Rebuild the cleaned version for analyzer
 
         # Check for termination signal (we need two of them because we risk
         # to miss the first one if we are busy processing data)
@@ -184,5 +197,5 @@ def run_recommender_system(
             close_process()
             break
         
-        comm_world.send((user, activities, passivities), dest=rank_index["analyzer"])
-        comm_world.send(users, dest=rank_index["agent_pool_manager"])
+        comm_world.send((users, activities, passivities), dest=rank_index["analyzer"])
+        comm_world.send(users_with_time, dest=rank_index["agent_pool_manager"])

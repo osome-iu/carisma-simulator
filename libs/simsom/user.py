@@ -145,8 +145,8 @@ class User:
         )
         # self.shared_messages.append(message_created)
 
-        # Check if the message quality is below 0.01 and update bad_message_posting
-        if message_created.quality < 0.01:
+        # Check if the message quality is 0 and update bad_message_posting
+        if message_created.quality == 0:
             self.bad_message_posting = True
             
         self.post_counter += 1

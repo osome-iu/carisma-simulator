@@ -1,14 +1,12 @@
 from mpi4py import MPI
 import time
-from user import User
 
-def suspension_base(user, users_packs_batch, current_time):
+def suspension_base(user, current_time):
     """
     Handles user suspension and removes their messages from newsfeeds of other users.
 
     Args:
         user (User): The user being processed.
-        users_packs_batch (list): List of (user, in_messages, current_time) tuples.
         current_time (float): The current simulation time.
     """
     # Skip terminated users immediately
@@ -16,8 +14,7 @@ def suspension_base(user, users_packs_batch, current_time):
         return
 
     # Constants
-    STRIKE_WINDOW = 9     # Time window to evaluate strikes (e.g., 9 days for now)
-    SUSPENSION_DURATIONS = {1: 1, 2: 2}  # Suspension lengths per strike count (in days -- 1 and 2 for now)
+    STRIKE_WINDOW = 0.1     # Time window to evaluate strikes (e.g., 9 days for now)
 
     # Remove expired strikes (outside the 90-day window)
     user.strike_timestamps = [
@@ -42,19 +39,20 @@ def suspension_base(user, users_packs_batch, current_time):
         # Suspend user for appropriate duration
         user.is_suspended = True
         user.suspended_time = current_time
-        suspension_duration = SUSPENSION_DURATIONS.get(user.sus_strike_count, 14)
+        suspension_duration = 0.0002 * user.sus_strike_count
         user.suspension_lift_time = current_time + suspension_duration
 
         # Clear user's own newsfeed if it exists
         if hasattr(user, "newsfeed"):
             user.newsfeed = []
 
+        # TODO: this is not possible anymore in current architecture. move this part to recommender_system.
         # Remove user's messages from others' newsfeeds
-        for other_user, _, _ in users_packs_batch:
-            if hasattr(other_user, "newsfeed"):
-                other_user.newsfeed = [
-                    msg for msg in other_user.newsfeed if msg.uid != user.uid
-                ]
+        #for other_user, _, _ in users_packs_batch:
+        #    if hasattr(other_user, "newsfeed"):
+        #        other_user.newsfeed = [
+        #            msg for msg in other_user.newsfeed if msg.uid != user.uid
+        #        ]
 
 def run_policy_filter(
     comm_world: MPI.Intercomm,
@@ -79,30 +77,22 @@ def run_policy_filter(
 
         data = comm_world.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
         if data == "sigterm":
-            # print("- Policy filter >> termination signal")
+            print("- Policy filter >> termination signal")
 
             # Flush pending incoming messages
             while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
                 _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
             comm_world.Barrier()
             break
-        # Now we know `data` is safe to process (not a string)
-        user_packs_batch = data
 
-        # Defensive structure check #SY HERE
-        if isinstance(user_packs_batch, User):
-            raise TypeError("Expected a batch of (user, in_messages, current_time), got a single User object.")
-        elif not isinstance(user_packs_batch, list):
-            user_packs_batch = [user_packs_batch]
+        user, current_time = data
+        suspension_base(user, current_time) #apply suspension logic
 
-        for i, user_pack in enumerate(user_packs_batch):
-            user, in_messages, current_time = user_pack
-            suspension_base(user, user_packs_batch, current_time)
-            user_packs_batch[i] = (user, in_messages, current_time)
+        # Send back the updated user
+        #print("- Policy filter >> data manager")
+        comm_world.send(("ping_policy", (user, current_time)), dest=rank_index["data_manager"])
 
-        comm_world.send(user_packs_batch, dest=rank_index["data_manager"])
-        
-        count += 1
+        #count += 1 <-- Guess this is for testing purpose?
 
-        if count == 10:
-            comm_world.send(("ping_policy", 0), dest=rank_index["data_manager"])
+        #if count == 10:
+        #    comm_world.send(("ping_policy", 0), dest=rank_index["data_manager"])

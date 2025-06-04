@@ -58,13 +58,13 @@ def run_agent_pool_manager(
         # If is not termination signal, dispatch data to agent handlers
         dispatch_requests = []
 
-        for user in data:
+        for user, current_time in data:
             if user.is_suspended or user.is_terminated:
-                print("- Agent Pool Manager >> skipping suspended users", flush=True)
+                # print("- Agent Pool Manager >> skipping suspended users", flush=True)
                 continue  # Skip users who are suspended or terminated
         
             handler_rank = rnd.choice(agent_handlers_ranks)
-            req = comm_world.isend(user, dest=handler_rank)
+            req = comm_world.isend((user, current_time), dest=handler_rank)
             dispatch_requests.append(req)
 
         MPI.Request.waitall(dispatch_requests)

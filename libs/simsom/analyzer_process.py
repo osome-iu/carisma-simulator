@@ -193,7 +193,7 @@ def run_analyzer(
         # Get data from policy filter
         data = comm_world.recv(source=rank_index["recommender_system"], status=status)
         # Unpack the data
-        user, activities, passivities = data
+        users_batch, activities, passivities = data
         # Count the number of messages
         n_data += len(activities)
         intermediate_n_user += 1
@@ -266,9 +266,13 @@ def run_analyzer(
                 current_quality_list = []
         # Use the convergence with exponential moving average
         elif ema_quality_method:
-            users.append(user)
-            feeds[user.uid] = user.newsfeed
-            if len(users) == n_users:
+            for user in users_batch: #edit as now we are getting users_batch (list) from recsys
+                feeds[user.uid] = user.newsfeed
+                users.append(user)
+
+            if len(users) >= n_users: #SY: changed since it never converges with suspension. Does this make sense?
+                if n_data == 0:
+                    continue  # Skip this round until at least 1 message has been recorded
                 users = []
                 quality_diff, new_quality = update_quality(current_quality=current_quality, overall_avg_quality=quality_sum / n_data)
                 current_quality = new_quality

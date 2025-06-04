@@ -42,7 +42,7 @@ def run_agent(
                 _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
             comm_world.Barrier()
             break
-        user = data
+        user, current_time = data
         
         new_msgs, passive_actions = user.make_actions()
         

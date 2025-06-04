@@ -106,8 +106,9 @@ def run_data_manager(
                 passive_actions_send = outgoing_passivities[picked_user.uid]
 
                 # Add it to the batch
-                users_packs_batch.append((picked_user, active_actions_send, passive_actions_send))
-                
+                current_time = clock.next_time() #get current_time as it is needed for policy
+                users_packs_batch.append((picked_user, active_actions_send, passive_actions_send, current_time)) #pack current_time with others
+
                 # TODO: Flush outgoing messages ????
                 outgoing_messages[picked_user.uid] = []
                 outgoing_passivities[picked_user.uid] = []
@@ -120,7 +121,12 @@ def run_data_manager(
             comm_world.send(users_packs_batch, dest=rank_index["recommender_system"])
 
         elif msg == "ping_policy":
-            continue
+            user, current_time = content
+            # Find and replace the user in the current users list
+            for i, existing_user in enumerate(users):
+                if existing_user.uid == user.uid:
+                    users[i] = user
+                    break
             # print("- Data manager >> ping policy")
 
         elif msg == "sigterm":
@@ -131,4 +137,4 @@ def run_data_manager(
                 _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
             comm_world.Barrier()
             break
-    # print("- Data manager >> finished", flush=True)
+    print("- Data manager >> finished", flush=True)
