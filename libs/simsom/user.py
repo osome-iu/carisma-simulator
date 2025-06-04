@@ -46,7 +46,12 @@ class User:
         self.repost_counter = 0
         self.view_counter = 0
         self.user_topics = generate_user_topics()
-        self.is_suspended = False
+        self.bad_message_posting = False #Trait to track bad activities of users
+        self.strike_timestamps = [] #object to track timestamps
+        self.sus_strike_count = 0 #to track the strike counts
+        self.suspension_lift_time = 0 #timeout for current suspension
+        self.is_suspended = False #Indicator for suspension
+        self.is_terminated = False #indicator for termination
         self.is_shadow = False
         self.mu = 0.5
 
@@ -139,6 +144,11 @@ class User:
             quality_params=self.quality_params,
         )
         # self.shared_messages.append(message_created)
+
+        # Check if the message quality is below 0.01 and update bad_message_posting
+        if message_created.quality < 0.01:
+            self.bad_message_posting = True
+            
         self.post_counter += 1
         return message_created
 
