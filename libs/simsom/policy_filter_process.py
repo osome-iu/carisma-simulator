@@ -9,8 +9,7 @@ def run_policy_filter(
     rank_index: dict,
 ):
 
-    # Verbose: use flush=True to print messages
-    # print("- Policy process >> started", flush=True)
+    print("* Policy process >> running...", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -37,3 +36,5 @@ def run_policy_filter(
 
         if count == 10:
             comm_world.send(("ping_policy", 0), dest=rank_index["data_manager"])
+
+    print("* Policy process >> closed.", flush=True)

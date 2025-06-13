@@ -85,11 +85,13 @@ def main():
     )
 
     if size < 6:
+
         if rank == 0:
             print("Error: This program requires at least 6 processes")
         sys.exit(1)
 
     if rank == RANK_INDEX["data_manager"]:
+
         run_data_manager(
             users=users,
             comm_world=comm_world,
@@ -100,6 +102,7 @@ def main():
         )
 
     elif rank == RANK_INDEX["policy_filter"]:
+
         run_policy_filter(
             comm_world=comm_world,
             rank=rank,
@@ -108,6 +111,7 @@ def main():
         )
 
     elif rank == RANK_INDEX["recommender_system"]:
+
         run_recommender_system(
             comm_world=comm_world,
             rank=rank,
@@ -116,6 +120,7 @@ def main():
         )
 
     elif rank == RANK_INDEX["analyzer"]:
+
         run_analyzer(
             comm_world=comm_world,
             rank=rank,
@@ -137,10 +142,11 @@ def main():
             print_interval=simulator_config["print_interval"],
             # Params for saving activities on disk
             save_active_interactions=simulator_config["save_active_interactions"],
-            save_passive_interactions=simulator_config["save_passive_interactions"]
+            save_passive_interactions=simulator_config["save_passive_interactions"],
         )
 
     elif rank == RANK_INDEX["agent_pool_manager"]:
+
         run_agent_pool_manager(
             comm_world=comm_world, rank=rank, size=size, rank_index=RANK_INDEX
         )
@@ -150,4 +156,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()

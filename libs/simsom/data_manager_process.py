@@ -11,6 +11,7 @@ import pandas as pd
 from mpi4py import MPI
 from user import User
 
+
 class ClockManager:
     """
     Class responsible for clock simulation,
@@ -41,41 +42,37 @@ def run_data_manager(
     batch_size=5,
 ):
 
-    # Verbose: use flush=True to print messages
-    # print("- Data manager >> started", flush=True)
+    print("* Data manager >> running...", flush=True)
 
     # Arch status object
     status = MPI.Status()
-    
+
     # Outgoing messages
     outgoing_messages = {user.uid: [] for user in users}
     outgoing_passivities = {user.uid: [] for user in users}
-    
+
     # Clock
     clock = ClockManager()
 
     # Manage user selection
-    selected_users = set() 
+    selected_users = set()
 
     # Bootstrap sync
     comm_world.Barrier()
-    
-    print("Simulation started", flush=True)
-    
 
     while True:
 
-        data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)        
+        data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
         msg, content = data
 
         if msg == "ping_agent_pool_manager":
             # Unpack the agent + incoming messages and passive actions
             user, new_msgs, passive_actions = content
             for msg in new_msgs:
-                msg.time = clock.next_time()   
+                msg.time = clock.next_time()
             # print(f"- Data manager >> {user.uid} has {len(new_msgs)} new messages", flush=True)
             # print(f"- Data manager >> {user.uid} has {len(passive_actions)} new passivities", flush=True)
-            
+
             # TODO: FIX THIS DEADPOINT, if we uncomment this we have a deadpoint
             outgoing_messages[user.uid].extend(new_msgs)
             outgoing_passivities[user.uid].extend(passive_actions)
@@ -83,9 +80,9 @@ def run_data_manager(
 
         elif msg == "ping_recsys":
             # Unpicked agents count
-            
+
             users_packs_batch = []
-            
+
             # Since we risk to shuffle the users when we build the batch, we need to
             # make sure we don't pick the same user twice
             batch_size = min(batch_size, len(users) - len(selected_users))
@@ -94,20 +91,22 @@ def run_data_manager(
             for _ in range(batch_size):
                 # Always pick the first user (round-robin style)
                 picked_user = users[0]
-            
+
                 # Track selected user
                 selected_users.add(picked_user.uid)
 
                 # Move picked user to the end of the list
                 users = users[1:] + [picked_user]
-                
+
                 # Get the in and out messages based on friends
                 active_actions_send = outgoing_messages[picked_user.uid]
                 passive_actions_send = outgoing_passivities[picked_user.uid]
 
                 # Add it to the batch
-                users_packs_batch.append((picked_user, active_actions_send, passive_actions_send))
-                
+                users_packs_batch.append(
+                    (picked_user, active_actions_send, passive_actions_send)
+                )
+
                 # TODO: Flush outgoing messages ????
                 outgoing_messages[picked_user.uid] = []
                 outgoing_passivities[picked_user.uid] = []
@@ -116,19 +115,22 @@ def run_data_manager(
                 if len(selected_users) == len(users):
                     rnd.shuffle(users)
                     selected_users.clear()
-                
+
             comm_world.send(users_packs_batch, dest=rank_index["recommender_system"])
 
         elif msg == "ping_policy":
+
+            print("* Data manager >> ping from policy")
             continue
-            # print("- Data manager >> ping policy")
 
         elif msg == "sigterm":
-            # print("- Data manager >> termination signal, stopping simulation...")
+
+            print("* Data manager >> Stopping simulation...")
 
             # Flush pending incoming messages
             while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
                 _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
             comm_world.Barrier()
             break
-    # print("- Data manager >> finished", flush=True)
+
+    print("* Data manager >> Closed.", flush=True)

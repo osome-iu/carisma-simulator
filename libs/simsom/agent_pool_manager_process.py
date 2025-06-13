@@ -15,8 +15,7 @@ def run_agent_pool_manager(
     rank_index: dict,
 ):
 
-    # Verbose: use flush=True to print messages
-    # print("- Agent pool manager >> started", flush=True)
+    print("* Agent pool manager >> running...", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -29,7 +28,7 @@ def run_agent_pool_manager(
     comm_world.Barrier()
 
     while True:
-        
+
         # Get data from recommender system process
         comm_world.send(
             "ping_agent_pool_manager",
@@ -64,3 +63,5 @@ def run_agent_pool_manager(
             dispatch_requests.append(req)
 
         MPI.Request.waitall(dispatch_requests)
+
+    print("* Agent pool manager >> closed.", flush=True)

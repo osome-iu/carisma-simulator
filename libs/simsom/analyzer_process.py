@@ -42,7 +42,7 @@ def resize_output(size: int):
     # get last user id from activity file so we can clean also the passivity file
     last_user = df.tail(1).user_id.values[0]
     df = pd.read_csv(file_path_passivity)
-    last_idx = df[df['user_id'] == last_user].last_valid_index()
+    last_idx = df[df["user_id"] == last_user].last_valid_index()
     df = df.loc[:last_idx]
     df.to_csv(
         file_path_passivity,
@@ -51,17 +51,21 @@ def resize_output(size: int):
         encoding="utf-8",
     )
 
-def update_quality(current_quality, overall_avg_quality) -> None:
+
+def update_quality(current_quality, overall_avg_quality):
     """
     Update quality using exponential moving average to ensure stable state at convergence
     Forget the past slowly, i.e., new_quality = 0.8 * avg_quality(at t-1) + 0.2 * current_quality
     """
 
-    new_quality = (rho * current_quality + (1 - rho) * overall_avg_quality)
+    new_quality = rho * current_quality + (1 - rho) * overall_avg_quality
     quality_diff = (
-        abs(new_quality - current_quality) / current_quality if current_quality > 0 else 0
+        abs(new_quality - current_quality) / current_quality
+        if current_quality > 0
+        else 0
     )
     return quality_diff, new_quality
+
 
 def enforce_single_convergence_method(**methods) -> dict:
     """
@@ -71,7 +75,11 @@ def enforce_single_convergence_method(**methods) -> dict:
     Returns:
         dict: dictionary with the selected method
     """
-    priority = ['max_interactions_method', 'sliding_window_method', 'ema_quality_method']
+    priority = [
+        "max_interactions_method",
+        "sliding_window_method",
+        "ema_quality_method",
+    ]
     active = [key for key in priority if methods.get(key, False)]
     selected = active[0] if active else priority[0]
     return {key: key == selected for key in priority}
@@ -80,27 +88,29 @@ def enforce_single_convergence_method(**methods) -> dict:
 def entropy(x: List[float]) -> float:
     return np.sum(x * np.log(x))
 
+
 def measure_diversity(self) -> int:
-        """
-        Calculates the diversity of the system using entropy (in terms of unique messages)
-        (Invoke only after self._return_all_message_info() is called)
-        """
+    """
+    Calculates the diversity of the system using entropy (in terms of unique messages)
+    (Invoke only after self._return_all_message_info() is called)
+    """
 
-        humanshares = []
-        for human_id in self.users:
-            newsfeed = self.users[human_id].user_feed
-            message_ids, _, _ = newsfeed
-            for message_id in message_ids:
-                humanshares += [message_id]
-        message_counts = Counter(humanshares)
-        # return a list of [(messageid, count)], sorted by id
-        count_byid = sorted(dict(message_counts).items())
-        humanshares = np.array([m[1] for m in count_byid])
+    humanshares = []
+    for human_id in self.users:
+        newsfeed = self.users[human_id].user_feed
+        message_ids, _, _ = newsfeed
+        for message_id in message_ids:
+            humanshares += [message_id]
+    message_counts = Counter(humanshares)
+    # return a list of [(messageid, count)], sorted by id
+    count_byid = sorted(dict(message_counts).items())
+    humanshares = np.array([m[1] for m in count_byid])
 
-        hshare_pct = np.divide(humanshares, sum(humanshares))
-        diversity = entropy(hshare_pct) * -1
-        # Note that (np.sum(humanshares)+np.sum(botshares)) !=self.num_messages because a message can be shared multiple times
-        return diversity
+    hshare_pct = np.divide(humanshares, sum(humanshares))
+    diversity = entropy(hshare_pct) * -1
+    # Note that (np.sum(humanshares)+np.sum(botshares)) !=self.num_messages because a message can be shared multiple times
+    return diversity
+
 
 def run_analyzer(
     comm_world: MPI.Intercomm,
@@ -122,9 +132,8 @@ def run_analyzer(
     verbose: bool,
     print_interval: int,
     # Params for saving activities on disk
-    save_active_interactions: bool=True,
-    save_passive_interactions: bool=True,  
-
+    save_active_interactions: bool = True,
+    save_passive_interactions: bool = True,
 ):
     """
     Function that takes care of calculating the convergence condition and stop execution
@@ -135,46 +144,54 @@ def run_analyzer(
         FILE_PATH (str): path to the file where the activities are saved
     """
 
+    print("* Analyzer process >> running...", flush=True)
+
     status = MPI.Status()
 
-    n_data = 0                  # keep track of the number of messages
-    intermediate_n_user = 0     # keep track of the number of users
-    interval_quality = 0        # keep track of the quality of the messages for interval printing
-    quality_sum = 0             # keep track of the quality of the messages
-    count = 0                   # keep track of the number of messages for verbose debug
-    current_quality_list = []   # list of qualities for the sliding window
-    previous_quality = None     # quality of the previous window
-    feeds = {}                  # dictionary of feeds for the users, this is used to calculate diversity, quality, etc.
-    users = []                  # list of users for the ema quality
-    current_quality = 1         # value to calculate the current quality each N iterations (or after T time)
+    # keep track of the number of messages
+    n_data = 0
+    # keep track of the number of users
+    intermediate_n_user = 0
+    # keep track of the quality of the messages for interval printing
+    interval_quality = 0
+    # keep track of the quality of the messages
+    quality_sum = 0
+    # keep track of the number of messages for verbose debug
+    count = 0
+    # list of qualities for the sliding window
+    current_quality_list = []
+    # quality of the previous window
+    previous_quality = None
+    # dictionary of feeds for the users, this is used to calculate diversity, quality, etc.
+    feeds = {}
+    # list of users for the ema quality
+    ema_users = []
+    # value to calculate the current quality each N iterations (or after T time)
+    current_quality = 1
+    # ????
     csv_out_act = None
-    
 
     convergence_flags = enforce_single_convergence_method(
         max_interactions_method=max_interactions_method,
         sliding_window_method=sliding_window_method,
-        ema_quality_method=ema_quality_method
+        ema_quality_method=ema_quality_method,
     )
 
-    max_interactions_method = convergence_flags['max_interactions_method']
-    sliding_window_method = convergence_flags['sliding_window_method']
-    ema_quality_method = convergence_flags['ema_quality_method']
-    
-    if max_interactions_method:
-        exec_name = 'Max iterations'
-    elif sliding_window_method:
-        exec_name = 'Sliding windows'
-    else:
-        exec_name = 'Exponential moving average'
+    max_interactions_method = convergence_flags["max_interactions_method"]
+    sliding_window_method = convergence_flags["sliding_window_method"]
+    ema_quality_method = convergence_flags["ema_quality_method"]
 
-    
-    print(f"Execution with {exec_name}")
-    
+    if max_interactions_method:
+        exec_name = "Max iterations"
+    elif sliding_window_method:
+        exec_name = "Sliding windows"
+    else:
+        exec_name = "Exponential moving average"
+
+    print(f"* Analyzer >> Execution with {exec_name}")
+
     # Initialize files
     simtools.init_files(folder_path, file_path_activity, file_path_passivity)
-
-    # Bootstrap sync
-    comm_world.Barrier()
 
     # Function to terminate the process and print information
     def clean_termination() -> None:
@@ -188,12 +205,15 @@ def run_analyzer(
         comm_world.Barrier()
         # print("- Analyzer >> flushed pending messages", flush=True)
 
+    # Bootstrap sync
+    comm_world.Barrier()
+
     while True:
 
         # Get data from policy filter
         data = comm_world.recv(source=rank_index["recommender_system"], status=status)
         # Unpack the data
-        user, activities, passivities = data
+        users, activities, passivities = data
         # Count the number of messages
         n_data += len(activities)
         intermediate_n_user += 1
@@ -213,19 +233,22 @@ def run_analyzer(
         finally:
             if out_act:
                 out_act.close()
-    
+
         # Write the passive interactions (view)
         if save_passive_interactions:
             with open(
                 file_path_passivity, "a", newline="", encoding="utf-8"
-            ) as out_pas:   
+            ) as out_pas:
                 csv_out_pas = csv.writer(out_pas)
                 for a in passivities:
                     csv_out_pas.writerow(a.write_action())
 
         if verbose:
             if intermediate_n_user % print_interval == 0:
-                print(f"Intermediate stats after {intermediate_n_user} users: interval quality --> {round(interval_quality / count, 2)}", flush=True)
+                print(
+                    f"* Analyzer >> Intermediate stats after {intermediate_n_user} users: interval quality --> {round(interval_quality / count, 2)}",
+                    flush=True,
+                )
                 count = 0
                 interval_quality = 0
 
@@ -236,47 +259,87 @@ def run_analyzer(
                 clean_termination()
                 # Resize the output file to the number of messages
                 resize_output(max_iteration_target)
-                print("Average quality:", round(quality_sum / n_data, 2), flush=True)
+                print(
+                    "* Analyzer >> Average quality:",
+                    round(quality_sum / n_data, 2),
+                    flush=True,
+                )
+                comm_world.Barrier()
                 break
 
         # Use the convergence with sliding window or based on overleall messages
         elif sliding_window_method:
             # Save the quality of the messages in the current window
             current_quality_list.extend([m.quality for m in activities])
-            
-            # Calculate the average quality for this window and compare to the previous one, 
+
+            # Calculate the average quality for this window and compare to the previous one,
             # if the abs difference is less than the threshold break and send termination signal
-            
-            # Check if we reached the sliding window size 
+
+            # Check if we reached the sliding window size
             if len(current_quality_list) >= sliding_window_size:
                 # Calculate the average quality for this window
                 current_quality = np.mean(current_quality_list)
                 # Calculate the average quality for the previous window
                 if previous_quality is not None:
                     # Check if the difference is less than the threshold
-                    if abs(current_quality - previous_quality) <= sliding_window_threshold:
+                    if (
+                        abs(current_quality - previous_quality)
+                        <= sliding_window_threshold
+                    ):
                         clean_termination()
                         # Resize the output file to the number of messages
                         # resize_output(n_data)
-                        print("Threshold reached:", abs(current_quality - previous_quality), flush=True)
-                        print("Average quality:", round(quality_sum / n_data, 2), flush=True)
+                        print(
+                            "* Analyzer >> Threshold reached:",
+                            abs(current_quality - previous_quality),
+                            flush=True,
+                        )
+                        print(
+                            "* Analyzer >> Average quality:",
+                            round(quality_sum / n_data, 2),
+                            flush=True,
+                        )
+                        comm_world.Barrier()
                         break
                 # Update the previous quality
                 previous_quality = current_quality
                 current_quality_list = []
         # Use the convergence with exponential moving average
         elif ema_quality_method:
-            users.append(user)
-            feeds[user.uid] = user.newsfeed
-            if len(users) == n_users:
-                users = []
-                quality_diff, new_quality = update_quality(current_quality=current_quality, overall_avg_quality=quality_sum / n_data)
+
+            for user in users:
+                ema_users.append(user)  # ???
+                feeds[user.uid] = user.newsfeed
+
+            if (
+                len(ema_users) == n_users
+            ):  # ema_users used only for len, implement a counter
+                ema_users = []  # ???
+
+                try:
+                    quality_diff, new_quality = update_quality(
+                        current_quality=current_quality,
+                        overall_avg_quality=quality_sum / n_data,
+                    )
+                except ZeroDivisionError:
+                    quality_diff, new_quality = 0, current_quality
+
                 current_quality = new_quality
+
                 if quality_diff <= ema_quality_convergence:
                     clean_termination()
                     # Resize the output file to the number of messages
                     # resize_output(max_iteration_target)
-                    print("Average quality:", round(quality_sum / n_data, 2), flush=True)
+                    print(
+                        "* Analyzer >> Average quality:",
+                        round(quality_sum / n_data, 2),
+                        flush=True,
+                    )
+                    comm_world.Barrier()
                     break
                 else:
-                    print(f"Quality diff after {n_data} messages: {quality_diff}")
+                    print(
+                        f"* Analyzer >> Quality diff after {n_data} messages: {quality_diff}"
+                    )
+
+    print("* Analyzer >> closed.", flush=True)

@@ -15,8 +15,7 @@ def run_agent(
     rank_index: dict,
 ):
 
-    # Verbose: use flush=True to print messages
-    # print(f"- Agent process @{rank} >> started", flush=True)
+    print(f"* Agent process @rank: {rank} >> running...", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -43,12 +42,16 @@ def run_agent(
             comm_world.Barrier()
             break
         user = data
-        
+
         new_msgs, passive_actions = user.make_actions()
-        
+
         # Repack the agent (updated feed) and actions (messages he produced)
         agent_pack_reply = (user, new_msgs, passive_actions)
 
-
-        comm_world.send(("ping_agent_pool_manager", agent_pack_reply), dest=rank_index["data_manager"])
+        comm_world.send(
+            ("ping_agent_pool_manager", agent_pack_reply),
+            dest=rank_index["data_manager"],
+        )
         comm_world.send(data, dest=rank_index["policy_filter"])
+
+    print(f"* Agent process @rank: {rank} >> closed.", flush=True)
