@@ -94,9 +94,11 @@ def run_data_manager(
 
                 # Track selected user
                 selected_users.add(picked_user.uid)
+                # NOTE: A set could be avoided
 
                 # Move picked user to the end of the list
                 users = users[1:] + [picked_user]
+                # NOTE: Can be optimized
 
                 # Get the in and out messages based on friends
                 active_actions_send = outgoing_messages[picked_user.uid]
@@ -133,4 +135,4 @@ def run_data_manager(
             comm_world.Barrier()
             break
 
-    print("* Data manager >> Closed.", flush=True)
+    print("* Data manager >> closed.", flush=True)

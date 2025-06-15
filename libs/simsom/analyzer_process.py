@@ -157,7 +157,7 @@ def run_analyzer(
     # keep track of the quality of the messages
     quality_sum = 0
     # keep track of the number of messages for verbose debug
-    count = 0
+    message_count = 0
     # list of qualities for the sliding window
     current_quality_list = []
     # quality of the previous window
@@ -196,14 +196,15 @@ def run_analyzer(
     # Function to terminate the process and print information
     def clean_termination() -> None:
         """Clean termination of the process"""
-        # print("- Analyzer >> GOAL REACHED, TERMINATING SIMULATION...", flush=True)
+        print("* Analyzer >> GOAL REACHED, TERMINATING SIMULATION...", flush=True)
         comm_world.send("sigterm", dest=rank_index["recommender_system"])
-        # print("- Analyzer >> sent termination signal to recommender system", flush=True)
+        print("* Analyzer >> sent termination signal to recommender system", flush=True)
         # Flush pending incoming messages
         while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
             _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+        print("* Analyzer >> Entering barrier...", flush=True)
         comm_world.Barrier()
-        # print("- Analyzer >> flushed pending messages", flush=True)
+        print("* Analyzer >> Passed barrier.", flush=True)
 
     # Bootstrap sync
     comm_world.Barrier()
@@ -216,22 +217,26 @@ def run_analyzer(
         users, activities, passivities = data
         # Count the number of messages
         n_data += len(activities)
-        intermediate_n_user += 1
-
+        # Count the number of user until now
+        intermediate_n_user += len(users)  # previous: increment only by 1
+        # print(f"n_data {n_data}", flush=True)
+        # print(f"intermediate_n_user: {intermediate_n_user}", flush=True)
         # Write the data to the files
         # Write the active interactions (post/repost)
         if save_active_interactions:
             out_act = open(file_path_activity, "a", newline="", encoding="utf-8")
             csv_out_act = csv.writer(out_act)
+
         try:
             for m in activities:
                 quality_sum += m.quality
                 interval_quality += m.quality
-                count += 1
+                message_count += 1
                 if csv_out_act:
                     csv_out_act.writerow(m.write_action())
         finally:
             if out_act:
+                # TO FIX: out_act possibly not bound
                 out_act.close()
 
         # Write the passive interactions (view)
@@ -244,12 +249,12 @@ def run_analyzer(
                     csv_out_pas.writerow(a.write_action())
 
         if verbose:
-            if intermediate_n_user % print_interval == 0:
+            if message_count != 0 and intermediate_n_user % print_interval == 0:
                 print(
-                    f"* Analyzer >> Intermediate stats after {intermediate_n_user} users: interval quality --> {round(interval_quality / count, 2)}",
+                    f"* Analyzer >> Intermediate stats after {intermediate_n_user} users: interval quality --> {round(interval_quality / message_count, 2)}",
                     flush=True,
                 )
-                count = 0
+                message_count = 0
                 interval_quality = 0
 
         # Based on the method for convergence check if we should stop
@@ -304,6 +309,7 @@ def run_analyzer(
                 # Update the previous quality
                 previous_quality = current_quality
                 current_quality_list = []
+
         # Use the convergence with exponential moving average
         elif ema_quality_method:
 
@@ -311,35 +317,51 @@ def run_analyzer(
                 ema_users.append(user)  # ???
                 feeds[user.uid] = user.newsfeed
 
-            if (
-                len(ema_users) == n_users
-            ):  # ema_users used only for len, implement a counter
+            if len(ema_users) >= n_users:
+                # NOTE: ema_users used only for len, pls implement a counter
                 ema_users = []  # ???
 
-                try:
+                if n_data > 0:
+                    # temp solution. At first stages n_data is 0.
+
+                    print(
+                        f"* Analyzer >> current quality {current_quality}", flush=True
+                    )
+                    print(f"* Analyzer >> quality sum {quality_sum}", flush=True)
+                    print(f"* Analyzer >> ndata {n_data}", flush=True)
+                    print(f"* Analyzer >> avg quality {quality_sum/n_data}", flush=True)
                     quality_diff, new_quality = update_quality(
                         current_quality=current_quality,
                         overall_avg_quality=quality_sum / n_data,
                     )
-                except ZeroDivisionError:
-                    quality_diff, new_quality = 0, current_quality
+                    print(f"* Analyzer >> quality diff {quality_diff}", flush=True)
+                    print(f"* Analyzer >> new quality {new_quality}", flush=True)
 
-                current_quality = new_quality
+                    current_quality = new_quality
 
-                if quality_diff <= ema_quality_convergence:
-                    clean_termination()
-                    # Resize the output file to the number of messages
-                    # resize_output(max_iteration_target)
-                    print(
-                        "* Analyzer >> Average quality:",
-                        round(quality_sum / n_data, 2),
-                        flush=True,
-                    )
-                    comm_world.Barrier()
-                    break
-                else:
-                    print(
-                        f"* Analyzer >> Quality diff after {n_data} messages: {quality_diff}"
-                    )
+                    if quality_diff <= ema_quality_convergence:
+
+                        print(
+                            f"* Analyzer >> quality_diff {quality_diff} <= threshold {ema_quality_convergence}",
+                            flush=True,
+                        )
+
+                        clean_termination()
+                        # Resize the output file to the number of messages
+                        # resize_output(max_iteration_target)
+
+                        print(
+                            "* Analyzer >> Average quality:",
+                            round(quality_sum / n_data, 2),
+                            flush=True,
+                        )
+
+                        break
+
+                    else:
+
+                        print(
+                            f"* Analyzer >> Quality diff after {n_data} messages: {quality_diff}"
+                        )
 
     print("* Analyzer >> closed.", flush=True)

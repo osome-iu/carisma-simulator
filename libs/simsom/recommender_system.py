@@ -159,6 +159,10 @@ def run_recommender_system(
         activities = []
         # Unpack the data and iterate over the contents
         for user, active_actions, passive_actions in data:
+            # print(
+            #     f"Received from DataMngr {len(active_actions)} active actions.",
+            #     flush=True,
+            # )
             # Get the message from inside and outside the network
             in_messages = []
             out_messages = []
@@ -186,7 +190,9 @@ def run_recommender_system(
             close_process()
             break
 
+        # print(f"Sending {len(activities)} activities to analyzer", flush=True)
+        # print(f"Sending {len(users)} users to analyzer", flush=True)
         comm_world.send((users, activities, passivities), dest=rank_index["analyzer"])
         comm_world.send(users, dest=rank_index["agent_pool_manager"])
 
-    print("* Data manager >> closed.", flush=True)
+    print("* RecSys >> closed.", flush=True)
