@@ -42,9 +42,8 @@ def suspension_base(user, current_time):
         suspension_duration = 0.0002 * user.sus_strike_count
         user.suspension_lift_time = current_time + suspension_duration
 
-        # Clear user's own newsfeed if it exists
-        if hasattr(user, "newsfeed"):
-            user.newsfeed = []
+        # Clear user's own newsfeed
+        user.newsfeed = []
 
         # TODO: this is not possible anymore in current architecture. move this part to recommender_system.
         # Remove user's messages from others' newsfeeds

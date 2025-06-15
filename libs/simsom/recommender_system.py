@@ -187,8 +187,7 @@ def run_recommender_system(
         # Clean the feeds in-place and rebuild the cleaned 'users' list
         users = []
         for user, current_time in users_with_time:
-            if hasattr(user, "newsfeed"):
-                user.newsfeed = [msg for msg in user.newsfeed if msg.uid not in suspended_ids]
+            user.newsfeed = [msg for msg in user.newsfeed if msg.uid not in suspended_ids]
             users.append(user)  # Rebuild the cleaned version for analyzer
 
         # Check for termination signal (we need two of them because we risk
