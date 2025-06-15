@@ -180,9 +180,8 @@ def run_recommender_system(
             global_inventory = global_inventory[-1000:] 
         
         # Clean newsfeeds of messages from suspended/terminated users
-        suspended_ids = set(
-            user.uid for user, _ in users_with_time if user.is_suspended or user.is_terminated
-        )
+        suspended_users = [user for user, _ in users_with_time if user.is_suspended or user.is_terminated]
+        suspended_ids = set(user.uid for user in suspended_users)
         
         # Clean the feeds in-place and rebuild the cleaned 'users' list
         users = []
