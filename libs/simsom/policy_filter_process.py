@@ -45,14 +45,6 @@ def suspension_base(user, current_time):
         # Clear user's own newsfeed
         user.newsfeed = []
 
-        # TODO: this is not possible anymore in current architecture. move this part to recommender_system.
-        # Remove user's messages from others' newsfeeds
-        #for other_user, _, _ in users_packs_batch:
-        #    if hasattr(other_user, "newsfeed"):
-        #        other_user.newsfeed = [
-        #            msg for msg in other_user.newsfeed if msg.uid != user.uid
-        #        ]
-
 def run_policy_filter(
     comm_world: MPI.Intercomm,
     rank: int,
