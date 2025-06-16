@@ -3,7 +3,7 @@ class Action:
         self.aid = aid
         self.uid = uid
 
-    def write_action(self):
+    def write_action(self) -> tuple:
         return (
             self.aid,
             self.uid,

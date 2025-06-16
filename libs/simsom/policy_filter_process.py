@@ -1,9 +1,8 @@
 from mpi4py import MPI
-import time
 
 
 def run_policy_filter(
-    comm_world: MPI.Intercomm,
+    comm_world: MPI.Intracomm,
     rank: int,
     size: int,  # If needed for future logic
     rank_index: dict,

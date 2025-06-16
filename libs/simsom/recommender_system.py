@@ -1,8 +1,4 @@
 from mpi4py import MPI
-from sklearn.metrics.pairwise import cosine_similarity
-import time
-import numpy as np
-import random
 from collections import Counter
 
 
@@ -28,7 +24,7 @@ def calculate_cosine_similarity(list_a: list, list_b: list) -> float:
 
 
 def run_recommender_system(
-    comm_world: MPI.Intercomm,
+    comm_world: MPI.Intracomm,
     rank: int,
     size: int,  # If needed for future logic
     rank_index: dict,

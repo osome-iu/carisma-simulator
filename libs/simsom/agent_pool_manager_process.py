@@ -5,11 +5,10 @@ Main task is to dispatch User/Agent objects to agent processes.
 
 from mpi4py import MPI
 import random as rnd
-import time
 
 
 def run_agent_pool_manager(
-    comm_world: MPI.Intercomm,
+    comm_world: MPI.Intracomm,
     rank: int,
     size: int,
     rank_index: dict,

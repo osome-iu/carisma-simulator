@@ -7,10 +7,8 @@ import time
 import csv
 import numpy as np
 from collections import Counter
-from typing import Tuple, List
 from mpi4py import MPI
 import simtools
-import time
 import pandas as pd
 
 # Path files
@@ -85,7 +83,7 @@ def enforce_single_convergence_method(**methods) -> dict:
     return {key: key == selected for key in priority}
 
 
-def entropy(x: List[float]) -> float:
+def entropy(x):
     return np.sum(x * np.log(x))
 
 
@@ -113,7 +111,7 @@ def measure_diversity(self) -> int:
 
 
 def run_analyzer(
-    comm_world: MPI.Intercomm,
+    comm_world: MPI.Intracomm,
     rank: int,
     rank_index: dict,
     # Params for sliding window method
@@ -223,6 +221,7 @@ def run_analyzer(
         # print(f"intermediate_n_user: {intermediate_n_user}", flush=True)
         # Write the data to the files
         # Write the active interactions (post/repost)
+        out_act = None
         if save_active_interactions:
             out_act = open(file_path_activity, "a", newline="", encoding="utf-8")
             csv_out_act = csv.writer(out_act)

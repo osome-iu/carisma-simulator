@@ -3,13 +3,11 @@ An agent receives inventory of messages (agent/user object) from the agent_pool_
 and post/repost messages that will be shown to their followers
 """
 
-import numpy as np
 from mpi4py import MPI
-import time
 
 
 def run_agent(
-    comm_world: MPI.Intercomm,
+    comm_world: MPI.Intracomm,
     rank: int,
     size: int,
     rank_index: dict,

@@ -2,14 +2,8 @@
 The data manager is responsible for choosing Users to run, save on disk generated data and
 """
 
-import time
-import csv
 import random as rnd
-import copy
-import numpy as np
-import pandas as pd
 from mpi4py import MPI
-from user import User
 
 
 class ClockManager:
@@ -21,7 +15,7 @@ class ClockManager:
     def __init__(self) -> None:
         self.current_time = 0
 
-    def next_time(self) -> int:
+    def next_time(self):
         """
         Return the current time and generate the next
         Returns:
@@ -30,12 +24,13 @@ class ClockManager:
         current = self.current_time
         # TODO: find a distribution for this
         self.current_time += rnd.random() * 0.02
+
         return current
 
 
 def run_data_manager(
-    users: list,
-    comm_world: MPI.Intercomm,
+    users,
+    comm_world: MPI.Intracomm,
     rank: int,
     size: int,
     rank_index: dict,

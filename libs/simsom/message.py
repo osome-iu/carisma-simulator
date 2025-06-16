@@ -10,15 +10,17 @@ from action import Action
 
 
 class Message(Action):
+
     def __init__(
         self,
-        mid: int,
-        uid: int,
+        mid: str,
+        uid: str,
         quality_params: tuple,
         topics: list,
         is_shadow: bool,
         exposure: list = [],
     ) -> None:
+
         Action.__init__(self, mid, uid)
         self.quality_params = quality_params
         self.topics = topics
@@ -63,6 +65,7 @@ class Message(Action):
         Returns:
             float: quality value
         """
+        quality = self.expon_quality()
         if distribution_param:
             alpha, beta, lower, upper = distribution_param
             checked = False
@@ -72,7 +75,7 @@ class Message(Action):
                     checked = True
             return quality
         else:
-            return self.expon_quality()
+            return quality
 
     def appeal_func(self, exponent=5) -> float:
         """
@@ -109,7 +112,7 @@ class Message(Action):
             ]
         )
 
-    def write_action(self):
+    def write_action(self) -> tuple:
         """function to write active action (post, repost) to the disk
 
         Returns:
