@@ -1,5 +1,22 @@
 from mpi4py import MPI
 from collections import Counter
+import time
+
+
+def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
+    pending = requests.copy()
+    for _ in range(soft_checks):
+        if MPI.Request.Testall(pending):
+            return
+    # fallback with sleep
+    start = time.time()
+    while time.time() - start < hard_timeout and pending:
+        pending = [req for req in pending if not req.Test()]
+
+
+def flush_incoming_messages(comm, status):
+    while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
+        _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
 
 
 def calculate_cosine_similarity(list_a: list, list_b: list) -> float:
@@ -129,27 +146,46 @@ def run_recommender_system(
         # Flush pending incoming messages
         while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
             _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
-        comm_world.Barrier()
+        comm_world.barrier()
 
     # Bootstrap sync
-    comm_world.Barrier()
+    comm_world.barrier()
 
     while True:
 
-        # Check for termination signal (we need two of them because we risk
-        # to miss the first one if we are busy processing data)
-        if check_for_sigterm():
-            close_process()
+        # # Check for termination signal (we need two of them because we risk
+        # # to miss the first one if we are busy processing data)
+        # if check_for_sigterm():
+        #     close_process()
+        #     break
+
+        # Wait for agent pool manager requesting data
+        data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+
+        # Check for termination
+        if status.Get_tag() == 99:
+            print("recsys >> sigterm detected (1)", flush=True)
+            flush_incoming_messages(comm_world, status)
+            comm_world.barrier()
             break
 
-        data = comm_world.recv(source=rank_index["agent_pool_manager"], status=status)
-
-        # Wait untile we receive data from the agent pool manager (agent pool manager may have not
+        # Wait until we receive data from the agent pool manager (agent pool manager may have not
         # enough users ready to pick them up so it will send empty list)
-        comm_world.send(("ping_recsys", 0), dest=rank_index["data_manager"])
-        data = comm_world.recv(source=rank_index["data_manager"], status=status)
-        # print("- RecSys >> data received.", flush=True)
-        # print(data)
+
+        # Requesting data to data manager
+        req1 = comm_world.isend(("recsys_proc", None), dest=rank_index["data_manager"])
+
+        # Wait for data from data manager
+        data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+
+        # Check for termination
+        if status.Get_tag() == 99:
+            print("recsys >> sigterm detected (2)", flush=True)
+            req1.cancel()
+            flush_incoming_messages(comm_world, status)
+            comm_world.barrier()
+            break
+
         users = []
         passivities = []
         activities = []
@@ -180,15 +216,20 @@ def run_recommender_system(
             # Remove the oldest 1000 messages so we don't run out of memory
             global_inventory = global_inventory[-1000:]
 
-        # Check for termination signal (we need two of them because we risk
-        # to miss the first one if we are busy processing data)
-        if check_for_sigterm():
-            close_process()
-            break
+        # # Check for termination signal (we need two of them because we risk
+        # # to miss the first one if we are busy processing data)
+        # if check_for_sigterm():
+        #     close_process()
+        #     break
 
         # print(f"Sending {len(activities)} activities to analyzer", flush=True)
         # print(f"Sending {len(users)} users to analyzer", flush=True)
-        comm_world.send((users, activities, passivities), dest=rank_index["analyzer"])
-        comm_world.send(users, dest=rank_index["agent_pool_manager"])
+
+        analyzer_pack = (users, activities, passivities)
+
+        req2 = comm_world.isend(analyzer_pack, dest=rank_index["analyzer"])
+        req3 = comm_world.isend(users, dest=rank_index["agent_pool_manager"])
+
+        safe_finalize_isends([req1, req2, req3])
 
     print("* RecSys >> closed.", flush=True)

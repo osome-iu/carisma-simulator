@@ -10,6 +10,7 @@ from collections import Counter
 from mpi4py import MPI
 import simtools
 import pandas as pd
+import random
 
 # Path files
 time_now = int(time.time())
@@ -204,12 +205,31 @@ def run_analyzer(
         comm_world.Barrier()
         print("* Analyzer >> Passed barrier.", flush=True)
 
+    # Function to terminate the process and print information
+    def clean_termination_v2(rank_index: dict):
+        """Clean termination of the process"""
+
+        print("* Analyzer >> GOAL REACHED, TERMINATING SIMULATION...", flush=True)
+
+        proc_ranks = list(range(comm_world.size))
+        random.shuffle(proc_ranks)
+        for rank in proc_ranks:
+            if rank != rank_index["analyzer"]:
+                comm_world.isend("STOP", dest=rank, tag=99)
+                print(
+                    f"* Analyzer >> sent termination signal to rank {rank}", flush=True
+                )
+
+        print("* Analyzer >> Entering barrier...", flush=True)
+        comm_world.barrier()
+        print("* Analyzer >> Passed barrier.", flush=True)
+
     # Bootstrap sync
-    comm_world.Barrier()
+    comm_world.barrier()
 
     while True:
 
-        # Get data from policy filter
+        # Wait for data from policy filter
         data = comm_world.recv(source=rank_index["recommender_system"], status=status)
         # Unpack the data
         users, activities, passivities = data
@@ -219,6 +239,7 @@ def run_analyzer(
         intermediate_n_user += len(users)  # previous: increment only by 1
         # print(f"n_data {n_data}", flush=True)
         # print(f"intermediate_n_user: {intermediate_n_user}", flush=True)
+
         # Write the data to the files
         # Write the active interactions (post/repost)
         out_act = None
@@ -260,7 +281,7 @@ def run_analyzer(
         if max_interactions_method:
             # Stop and terminate the process
             if n_data >= max_iteration_target:
-                clean_termination()
+                clean_termination_v2(rank_index=rank_index)
                 # Resize the output file to the number of messages
                 resize_output(max_iteration_target)
                 print(
@@ -268,7 +289,6 @@ def run_analyzer(
                     round(quality_sum / n_data, 2),
                     flush=True,
                 )
-                comm_world.Barrier()
                 break
 
         # Use the convergence with sliding window or based on overleall messages
@@ -290,7 +310,7 @@ def run_analyzer(
                         abs(current_quality - previous_quality)
                         <= sliding_window_threshold
                     ):
-                        clean_termination()
+                        clean_termination_v2(rank_index=rank_index)
                         # Resize the output file to the number of messages
                         # resize_output(n_data)
                         print(
@@ -303,7 +323,7 @@ def run_analyzer(
                             round(quality_sum / n_data, 2),
                             flush=True,
                         )
-                        comm_world.Barrier()
+
                         break
                 # Update the previous quality
                 previous_quality = current_quality
@@ -345,7 +365,8 @@ def run_analyzer(
                             flush=True,
                         )
 
-                        clean_termination()
+                        clean_termination_v2(rank_index=rank_index)
+
                         # Resize the output file to the number of messages
                         # resize_output(max_iteration_target)
 

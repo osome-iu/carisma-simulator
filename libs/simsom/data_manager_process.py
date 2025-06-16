@@ -4,6 +4,23 @@ The data manager is responsible for choosing Users to run, save on disk generate
 
 import random as rnd
 from mpi4py import MPI
+import time
+
+
+def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
+    pending = requests.copy()
+    for _ in range(soft_checks):
+        if MPI.Request.Testall(pending):
+            return
+    # fallback with sleep
+    start = time.time()
+    while time.time() - start < hard_timeout and pending:
+        pending = [req for req in pending if not req.Test()]
+
+
+def flush_incoming_messages(comm, status):
+    while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
+        _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
 
 
 class ClockManager:
@@ -53,28 +70,37 @@ def run_data_manager(
     selected_users = set()
 
     # Bootstrap sync
-    comm_world.Barrier()
+    comm_world.barrier()
 
     while True:
 
         data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
-        msg, content = data
 
-        if msg == "ping_agent_pool_manager":
+        # Check if termination signal has been sent
+        if status.Get_tag() == 99:
+            print("DataMngr >> (1) sigterm detected, entering barrier...", flush=True)
+            flush_incoming_messages(comm_world, status)
+            comm_world.barrier()
+            break
+
+        sender, content = data
+
+        if sender == "agent_proc":
+
             # Unpack the agent + incoming messages and passive actions
             user, new_msgs, passive_actions = content
-            for msg in new_msgs:
-                msg.time = clock.next_time()
-            # print(f"- Data manager >> {user.uid} has {len(new_msgs)} new messages", flush=True)
-            # print(f"- Data manager >> {user.uid} has {len(passive_actions)} new passivities", flush=True)
 
-            # TODO: FIX THIS DEADPOINT, if we uncomment this we have a deadpoint
+            # Assign a timestamp
+            for sender in new_msgs:
+                sender.time = clock.next_time()
+
+            # print(f"* Data manager >> {user.uid} has {len(new_msgs)} new messages", flush=True)
+            # print(f"* Data manager >> {user.uid} has {len(passive_actions)} new passivities", flush=True)
+
             outgoing_messages[user.uid].extend(new_msgs)
             outgoing_passivities[user.uid].extend(passive_actions)
-            # print(len(outgoing_passivities[user.uid]))
 
-        elif msg == "ping_recsys":
-            # Unpicked agents count
+        elif sender == "recsys_proc":
 
             users_packs_batch = []
 
@@ -113,21 +139,32 @@ def run_data_manager(
                     rnd.shuffle(users)
                     selected_users.clear()
 
-            comm_world.send(users_packs_batch, dest=rank_index["recommender_system"])
+            req1 = comm_world.isend(
+                users_packs_batch, dest=rank_index["recommender_system"]
+            )
 
-        elif msg == "ping_policy":
+            safe_finalize_isends([req1])
 
-            print("* Data manager >> ping from policy")
+        elif sender == "policy_proc":
+
+            print("* Data manager >> data from policy", flush=True)
+            # Get the moderated user/content info and apply logic to data
             continue
 
-        elif msg == "sigterm":
+        # elif sender == "analyzer_proc" and content == "STOP":
 
-            print("* Data manager >> Stopping simulation...")
+        #     print("* Data manager >> Stopping simulation...")
 
-            # Flush pending incoming messages
-            while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
-                _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
-            comm_world.Barrier()
-            break
+        #     # # Flush pending incoming messages
+        #     # while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
+        #     #     _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+
+        #     comm_world.Barrier()
+        #     break
+
+        else:
+
+            print("* Data manager >> unknown message", flush=True)
+            raise ValueError
 
     print("* Data manager >> closed.", flush=True)
