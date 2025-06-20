@@ -42,8 +42,8 @@ def run_policy_filter(
 
         # Check for termination
         if status.Get_tag() == 99:
-            print("PolicyProc >> sigterm detected", flush=True)
-            flush_incoming_messages(comm_world, status)
+            print("PolicyProc >> (1) sigterm detected, entering barrier...", flush=True)
+            # flush_incoming_messages(comm_world, status)
             comm_world.barrier()
             break
 

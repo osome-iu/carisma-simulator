@@ -10,7 +10,7 @@ import time
 def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
     pending = requests.copy()
     for _ in range(soft_checks):
-        if MPI.Request.Testall(pending):
+        if MPI.Request.testall(pending):
             return
     # fallback with sleep
     start = time.time()
@@ -18,9 +18,10 @@ def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
         pending = [req for req in pending if not req.Test()]
 
 
-def flush_incoming_messages(comm, status):
-    while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
-        _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
+# Deprecated. (iprobe is too fast and may fail)
+# def flush_incoming_messages(comm, status):
+#     while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
+#         _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
 
 
 class ClockManager:
@@ -79,7 +80,7 @@ def run_data_manager(
         # Check if termination signal has been sent
         if status.Get_tag() == 99:
             print("DataMngr >> (1) sigterm detected, entering barrier...", flush=True)
-            flush_incoming_messages(comm_world, status)
+            # flush_incoming_messages(comm_world, status)
             comm_world.barrier()
             break
 

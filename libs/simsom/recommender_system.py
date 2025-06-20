@@ -14,9 +14,9 @@ def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
         pending = [req for req in pending if not req.Test()]
 
 
-def flush_incoming_messages(comm, status):
-    while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
-        _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
+# def flush_incoming_messages(comm, status):
+#     while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
+#         _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
 
 
 def calculate_cosine_similarity(list_a: list, list_b: list) -> float:
@@ -54,14 +54,14 @@ def run_recommender_system(
 
     global_inventory = []
 
-    # Function to check for termination signal
-    # (non-blocking)
-    def check_for_sigterm():
-        """Non-blocking check for termination signal"""
-        if comm_world.Iprobe(source=rank_index["analyzer"]):
-            _ = comm_world.recv(source=rank_index["analyzer"])
-            return True
-        return False
+    # # Function to check for termination signal
+    # # (non-blocking)
+    # def check_for_sigterm():
+    #     """Non-blocking check for termination signal"""
+    #     if comm_world.Iprobe(source=rank_index["analyzer"]):
+    #         _ = comm_world.recv(source=rank_index["analyzer"])
+    #         return True
+    #     return False
 
     def sort_based_topics(messages: list, agent) -> list:
         if len(messages) == 0:
@@ -136,17 +136,17 @@ def run_recommender_system(
         )
         return new_newsfeed
 
-    # Close the process cleanly
-    def close_process():
-        # print("- RecSys >> termination signal, stopping simulation...", flush=True)
+    # # Close the process cleanly
+    # def close_process():
+    #     # print("- RecSys >> termination signal, stopping simulation...", flush=True)
 
-        comm_world.send(("sigterm", 0), dest=rank_index["data_manager"])
-        comm_world.send("sigterm", dest=rank_index["agent_pool_manager"])
+    #     comm_world.send(("sigterm", 0), dest=rank_index["data_manager"])
+    #     comm_world.send("sigterm", dest=rank_index["agent_pool_manager"])
 
-        # Flush pending incoming messages
-        while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
-            _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
-        comm_world.barrier()
+    #     # Flush pending incoming messages
+    #     while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
+    #         _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+    #     comm_world.barrier()
 
     # Bootstrap sync
     comm_world.barrier()
@@ -164,15 +164,15 @@ def run_recommender_system(
 
         # Check for termination
         if status.Get_tag() == 99:
-            print("recsys >> sigterm detected (1)", flush=True)
-            flush_incoming_messages(comm_world, status)
+            print("recsys >> (1) sigterm detected, entering barrier... ", flush=True)
+            # flush_incoming_messages(comm_world, status)
             comm_world.barrier()
             break
 
         # Wait until we receive data from the agent pool manager (agent pool manager may have not
         # enough users ready to pick them up so it will send empty list)
 
-        # Requesting data to data manager
+        # Requesting data to data manager (non blocking)
         req1 = comm_world.isend(("recsys_proc", None), dest=rank_index["data_manager"])
 
         # Wait for data from data manager
@@ -180,9 +180,9 @@ def run_recommender_system(
 
         # Check for termination
         if status.Get_tag() == 99:
-            print("recsys >> sigterm detected (2)", flush=True)
+            print("recsys >> (2) sigterm detected, entering barrier... ", flush=True)
             req1.cancel()
-            flush_incoming_messages(comm_world, status)
+            # flush_incoming_messages(comm_world, status)
             comm_world.barrier()
             break
 

@@ -53,9 +53,11 @@ def run_agent_pool_manager(
 
         # Check for termination
         if status.Get_tag() == 99:
-            print("AgntPoolMngr >> sigterm detected (1)", flush=True)
+            print(
+                "AgntPoolMngr >> (1) sigterm detected, enring barrier... ", flush=True
+            )
             req1.cancel()
-            flush_incoming_messages(comm_world, status)
+            # flush_incoming_messages(comm_world, status)
             comm_world.barrier()
             break
 

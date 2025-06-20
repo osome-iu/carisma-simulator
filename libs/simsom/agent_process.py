@@ -46,8 +46,11 @@ def run_agent(
 
         # Check for termination
         if status.Get_tag() == 99:
-            print(f"Agent@{rank} >> sigterm detected (1)", flush=True)
-            flush_incoming_messages(comm_world, status)
+            print(
+                f"Agent@{rank} >> (1) sigterm detected, entering barrier... ",
+                flush=True,
+            )
+            # flush_incoming_messages(comm_world, status)
             comm_world.barrier()
             break
 
