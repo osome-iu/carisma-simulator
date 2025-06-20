@@ -4,23 +4,7 @@ and post/repost messages that will be shown to their followers
 """
 
 from mpi4py import MPI
-import time
-
-
-def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
-    pending = requests.copy()
-    for _ in range(soft_checks):
-        if MPI.Request.Testall(pending):
-            return
-    # fallback with sleep
-    start = time.time()
-    while time.time() - start < hard_timeout and pending:
-        pending = [req for req in pending if not req.Test()]
-
-
-def flush_incoming_messages(comm, status):
-    while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
-        _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
+from mpi_utils import iprobe_with_timeout
 
 
 def run_agent(
@@ -35,46 +19,61 @@ def run_agent(
     # Status of the processes
     status = MPI.Status()
 
+    # Process status
+    alive = True
+
+    # Process isends
+    isends = []
+
     # Bootstrap sync
     comm_world.barrier()
 
     while True:
 
-        # Receive package that contains (friend ids, messages) from agent_pool_manager
-        # Wait for agent pack to process
-        data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+        if iprobe_with_timeout(
+            comm_world,
+            source=MPI.ANY_SOURCE,
+            tag=MPI.ANY_TAG,
+            status=status,
+        ):
 
-        # Check for termination
-        if status.Get_tag() == 99:
-            print(
-                f"Agent@{rank} >> (1) sigterm detected, entering barrier... ",
-                flush=True,
-            )
-            # flush_incoming_messages(comm_world, status)
+            # Receive package that contains (friend ids, messages) from agent_pool_manager
+            data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+
+            # Check for termination
+            if status.Get_tag() == 99:
+                print(f"Agent@{rank} >> stop signal detected", flush=True)
+                alive = False
+
+            MPI.Request.waitall(isends)
+            isends.clear()
+
+            if alive:
+
+                user = data  # Just for readability
+                activities, passivities = user.make_actions()
+
+                # Repack the agent (updated feed) and activities (messages he produced)
+                agnt_pack_rep = ("agent_proc", (user, activities, passivities))
+
+                # Send the processed user first to the data manager
+                req1 = comm_world.isend(agnt_pack_rep, dest=rank_index["data_manager"])
+
+                # Then send the processed user to the policy process
+                req2 = comm_world.isend(user, dest=rank_index["policy_filter"])
+
+                isends.append(req1)
+                isends.append(req2)
+
+            else:
+
+                print(f"* Agent@{rank} >> Not sending stuff.", flush=True)
+
+        else:
+
+            print(f"Agent@{rank} >> Entering barrier...", flush=True)
             comm_world.barrier()
+            print(f"Agent@{rank} >> Barrier passed.", flush=True)
             break
-
-        # # Check if the data is a termination signal and break the loop propagating the sigterm
-        # if data == "sigterm":
-        #     # print("- Agent process >> termination signal, stopping simulation...")
-        #     comm_world.send(data, dest=rank_index["policy_filter"])
-        #     # Flush pending incoming messages so we can exit cleanly
-        #     while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
-        #         _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
-        #     comm_world.Barrier()
-        #     break
-
-        user = data
-        activities, passivities = user.make_actions()
-
-        # Repack the agent (updated feed) and activities (messages he produced)
-        agent_pack_reply = ("agent_proc", (user, activities, passivities))
-
-        req1 = comm_world.isend(agent_pack_reply, dest=rank_index["data_manager"])
-
-        # Send the processed user to the policy process
-        req2 = comm_world.isend(user, dest=rank_index["policy_filter"])
-
-        safe_finalize_isends([req1, req2])
 
     print(f"* Agent process @rank: {rank} >> closed.", flush=True)

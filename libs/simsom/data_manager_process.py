@@ -4,18 +4,7 @@ The data manager is responsible for choosing Users to run, save on disk generate
 
 import random as rnd
 from mpi4py import MPI
-import time
-
-
-def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
-    pending = requests.copy()
-    for _ in range(soft_checks):
-        if MPI.Request.testall(pending):
-            return
-    # fallback with sleep
-    start = time.time()
-    while time.time() - start < hard_timeout and pending:
-        pending = [req for req in pending if not req.Test()]
+from mpi_utils import iprobe_with_timeout
 
 
 # Deprecated. (iprobe is too fast and may fail)
@@ -70,102 +59,114 @@ def run_data_manager(
     # Manage user selection
     selected_users = set()
 
+    alive = True
+
+    isends = []
+
     # Bootstrap sync
     comm_world.barrier()
 
     while True:
 
-        data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+        if iprobe_with_timeout(
+            comm_world,
+            source=MPI.ANY_SOURCE,
+            tag=MPI.ANY_TAG,
+            status=status,
+        ):
 
-        # Check if termination signal has been sent
-        if status.Get_tag() == 99:
-            print("DataMngr >> (1) sigterm detected, entering barrier...", flush=True)
-            # flush_incoming_messages(comm_world, status)
-            comm_world.barrier()
-            break
+            data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
-        sender, content = data
+            sender, content = None, []
 
-        if sender == "agent_proc":
+            # Check if termination signal has been sent
+            if status.Get_tag() == 99:
+                print("DataMngr >> stop signal detected", flush=True)
+                alive = False
+            else:
+                sender, content = data
 
-            # Unpack the agent + incoming messages and passive actions
-            user, new_msgs, passive_actions = content
+            MPI.Request.waitall(isends)
+            isends.clear()
 
-            # Assign a timestamp
-            for sender in new_msgs:
-                sender.time = clock.next_time()
+            if alive:
 
-            # print(f"* Data manager >> {user.uid} has {len(new_msgs)} new messages", flush=True)
-            # print(f"* Data manager >> {user.uid} has {len(passive_actions)} new passivities", flush=True)
+                if sender == "agent_proc":
 
-            outgoing_messages[user.uid].extend(new_msgs)
-            outgoing_passivities[user.uid].extend(passive_actions)
+                    # Unpack the agent + incoming messages and passive actions
+                    user, new_msgs, passive_actions = content
 
-        elif sender == "recsys_proc":
+                    # Assign a timestamp
+                    for sender in new_msgs:
+                        sender.time = clock.next_time()
 
-            users_packs_batch = []
+                    # print(f"* Data manager >> {user.uid} has {len(new_msgs)} new messages", flush=True)
+                    # print(f"* Data manager >> {user.uid} has {len(passive_actions)} new passivities", flush=True)
 
-            # Since we risk to shuffle the users when we build the batch, we need to
-            # make sure we don't pick the same user twice
-            batch_size = min(batch_size, len(users) - len(selected_users))
+                    outgoing_messages[user.uid].extend(new_msgs)
+                    outgoing_passivities[user.uid].extend(passive_actions)
 
-            # Build the batch
-            for _ in range(batch_size):
-                # Always pick the first user (round-robin style)
-                picked_user = users[0]
+                elif sender == "recsys_proc":
 
-                # Track selected user
-                selected_users.add(picked_user.uid)
-                # NOTE: A set could be avoided
+                    users_packs_batch = []
 
-                # Move picked user to the end of the list
-                users = users[1:] + [picked_user]
-                # NOTE: Can be optimized
+                    # Since we risk to shuffle the users when we build the batch, we need to
+                    # make sure we don't pick the same user twice
+                    batch_size = min(batch_size, len(users) - len(selected_users))
 
-                # Get the in and out messages based on friends
-                active_actions_send = outgoing_messages[picked_user.uid]
-                passive_actions_send = outgoing_passivities[picked_user.uid]
+                    # Build the batch
+                    for _ in range(batch_size):
+                        # Always pick the first user (round-robin style)
+                        picked_user = users[0]
 
-                # Add it to the batch
-                users_packs_batch.append(
-                    (picked_user, active_actions_send, passive_actions_send)
-                )
+                        # Track selected user
+                        selected_users.add(picked_user.uid)
+                        # NOTE: A set could be avoided
 
-                # TODO: Flush outgoing messages ????
-                outgoing_messages[picked_user.uid] = []
-                outgoing_passivities[picked_user.uid] = []
+                        # Move picked user to the end of the list
+                        users = users[1:] + [picked_user]
+                        # NOTE: Can be optimized
 
-                # Before we process all the users, we need to shuffle them
-                if len(selected_users) == len(users):
-                    rnd.shuffle(users)
-                    selected_users.clear()
+                        # Get the in and out messages based on friends
+                        active_actions_send = outgoing_messages[picked_user.uid]
+                        passive_actions_send = outgoing_passivities[picked_user.uid]
 
-            req1 = comm_world.isend(
-                users_packs_batch, dest=rank_index["recommender_system"]
-            )
+                        # Add it to the batch
+                        users_packs_batch.append(
+                            (picked_user, active_actions_send, passive_actions_send)
+                        )
 
-            safe_finalize_isends([req1])
+                        # TODO: Flush outgoing messages ????
+                        outgoing_messages[picked_user.uid] = []
+                        outgoing_passivities[picked_user.uid] = []
 
-        elif sender == "policy_proc":
+                        # Before we process all the users, we need to shuffle them
+                        if len(selected_users) == len(users):
+                            rnd.shuffle(users)
+                            selected_users.clear()
 
-            print("* Data manager >> data from policy", flush=True)
-            # Get the moderated user/content info and apply logic to data
-            continue
+                    req1 = comm_world.isend(
+                        users_packs_batch,
+                        dest=rank_index["recommender_system"],
+                    )
 
-        # elif sender == "analyzer_proc" and content == "STOP":
+                    isends.append(req1)
 
-        #     print("* Data manager >> Stopping simulation...")
+                elif sender == "policy_proc":
 
-        #     # # Flush pending incoming messages
-        #     # while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
-        #     #     _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+                    print("* Data manager >> data from policy", flush=True)
+                    # Get the moderated user/content info and apply logic to data
+                    continue
 
-        #     comm_world.Barrier()
-        #     break
+                else:
+
+                    print("* Data manager >> unknown message", flush=True)
+                    raise ValueError
 
         else:
-
-            print("* Data manager >> unknown message", flush=True)
-            raise ValueError
+            print("* Data manager >> entering barrier...", flush=True)
+            comm_world.barrier()
+            print("* Data manager >> passed barrier", flush=True)
+            break
 
     print("* Data manager >> closed.", flush=True)

@@ -1,21 +1,5 @@
 from mpi4py import MPI
-import time
-
-
-def safe_finalize_isends(requests, soft_checks=3, hard_timeout=0.1):
-    pending = requests.copy()
-    for _ in range(soft_checks):
-        if MPI.Request.Testall(pending):
-            return
-    # fallback with sleep
-    start = time.time()
-    while time.time() - start < hard_timeout and pending:
-        pending = [req for req in pending if not req.Test()]
-
-
-def flush_incoming_messages(comm, status):
-    while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
-        _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
+from mpi_utils import iprobe_with_timeout
 
 
 def run_policy_filter(
@@ -33,39 +17,53 @@ def run_policy_filter(
     # DEBUG COUNTER
     count = 0
 
+    # Process status
+    alive = True
+
+    # Process isends
+    isends = []
+
     # Bootstrap sync
     comm_world.barrier()
 
     while True:
 
-        data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+        if iprobe_with_timeout(
+            comm_world,
+            source=MPI.ANY_SOURCE,
+            tag=MPI.ANY_TAG,
+            status=status,
+        ):
 
-        # Check for termination
-        if status.Get_tag() == 99:
-            print("PolicyProc >> (1) sigterm detected, entering barrier...", flush=True)
-            # flush_incoming_messages(comm_world, status)
+            data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+
+            # Check for termination
+            if status.Get_tag() == 99:
+                print("* PolicyProc >> stop signal detected", flush=True)
+                alive = False
+
+            MPI.Request.waitall(isends)
+            isends.clear()
+
+            if alive:
+
+                _ = data  # TO BE IMPLEMENTED
+
+                count += 1
+
+                if count == 10:
+
+                    req1 = comm_world.isend(
+                        ("policy_proc", None),
+                        dest=rank_index["data_manager"],
+                    )
+
+                    isends.append(req1)
+
+        else:
+            print("* PolicyProc >> entering barrier...", flush=True)
             comm_world.barrier()
+            print("* PolicyProc >> passed barrier", flush=True)
             break
-
-        _ = data  # TO BE IMPLEMENTED
-
-        # if data == "sigterm":
-        #     # print("- Policy filter >> termination signal")
-
-        #     # Flush pending incoming messages
-        #     while comm_world.Iprobe(source=MPI.ANY_SOURCE, status=status):
-        #         _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
-        #     comm_world.Barrier()
-        #     break
-
-        count += 1
-
-        if count == 10:
-
-            req1 = comm_world.isend(
-                ("policy_proc", None), dest=rank_index["data_manager"]
-            )
-
-            safe_finalize_isends([req1])
 
     print("* PolicyProc >> closed.", flush=True)
