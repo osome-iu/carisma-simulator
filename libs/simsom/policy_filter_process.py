@@ -42,9 +42,6 @@ def run_policy_filter(
                 print("* PolicyProc >> stop signal detected", flush=True)
                 alive = False
 
-            MPI.Request.waitall(isends)
-            isends.clear()
-
             if alive:
 
                 _ = data  # TO BE IMPLEMENTED
@@ -53,16 +50,21 @@ def run_policy_filter(
 
                 if count == 10:
 
-                    req1 = comm_world.isend(
-                        ("policy_proc", None),
-                        dest=rank_index["data_manager"],
+                    MPI.Request.waitall(isends)
+                    isends.clear()
+
+                    isends.append(
+                        comm_world.isend(
+                            ("policy_proc", None),
+                            dest=rank_index["data_manager"],
+                        )
                     )
 
-                    isends.append(req1)
-
         else:
+
             print("* PolicyProc >> waiting isends...", flush=True)
             MPI.Request.waitall(isends)
+
             print("* PolicyProc >> entering barrier...", flush=True)
             comm_world.barrier()
             break

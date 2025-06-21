@@ -36,12 +36,14 @@ def run_agent_pool_manager(
     while True:
 
         if alive:
+
             # Request data from recommender system process
-            req1 = comm_world.isend(
-                "agents_needed",
-                dest=rank_index["recommender_system"],
+            isends.append(
+                comm_world.isend(
+                    "agents_needed",
+                    dest=rank_index["recommender_system"],
+                )
             )
-            isends.append(req1)
 
         if iprobe_with_timeout(
             comm_world,
@@ -58,11 +60,11 @@ def run_agent_pool_manager(
                 print("* AgntPoolMngr >> stop signal detected", flush=True)
                 alive = False
 
-            # Wait for pending isends
-            MPI.Request.waitall(isends)
-            isends.clear()
-
             if alive:
+
+                # Wait for pending isends
+                MPI.Request.waitall(isends)
+                isends.clear()
 
                 for user in data:
                     handler_rank = rnd.choice(agent_handlers_ranks)
@@ -70,8 +72,10 @@ def run_agent_pool_manager(
                     isends.append(req)
 
         else:
+
             print("* AgntPoolMngr >> waiting isends...", flush=True)
             MPI.Request.waitall(isends)
+
             print("* AgntPoolMngr >> entering barrier...", flush=True)
             comm_world.barrier()
             break

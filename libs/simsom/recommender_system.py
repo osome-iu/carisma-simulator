@@ -162,9 +162,6 @@ def run_recommender_system(
                         print("recsys >> (2) stop signal detected ", flush=True)
                         alive = False
 
-                    MPI.Request.waitall(isends)
-                    isends.clear()
-
                     if alive:
 
                         users = []
@@ -193,6 +190,9 @@ def run_recommender_system(
                             # Remove the oldest 1000 messages so we don't run out of memory
                             global_inventory = global_inventory[-1000:]
 
+                        MPI.Request.waitall(isends)
+                        isends.clear()
+
                         isends.append(
                             comm_world.isend(
                                 (users, activities, passivities),
@@ -208,6 +208,7 @@ def run_recommender_system(
                         )
 
                 else:
+
                     print("* RecSys>> (1) waiting isends...", flush=True)
                     MPI.Request.waitall(isends)
 
@@ -219,6 +220,7 @@ def run_recommender_system(
 
             print("* RecSys>> (2) waiting isends...", flush=True)
             MPI.Request.waitall(isends)
+
             print("* RecSys >> (2) entering barrier...", flush=True)
             comm_world.barrier()
             break

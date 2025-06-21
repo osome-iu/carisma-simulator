@@ -160,7 +160,8 @@ def run_data_manager(
 
         else:
 
-            # Wait for pending isends
+            # Wait for residual pending isends
+            print("* Data manager >> finalizing isends...", flush=True)
             MPI.Request.waitall(isends)
 
             print("* Data manager >> entering barrier...", flush=True)

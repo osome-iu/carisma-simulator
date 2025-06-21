@@ -45,33 +45,36 @@ def run_agent(
                 print(f"* Agent@{rank} >> stop signal detected", flush=True)
                 alive = False
 
-            MPI.Request.waitall(isends)
-            isends.clear()
-
             if alive:
 
                 user = data  # Just for readability
                 activities, passivities = user.make_actions()
 
                 # Repack the agent (updated feed) and activities (messages he produced)
-                agnt_pack_rep = ("agent_proc", (user, activities, passivities))
 
                 # Send the processed user first to the data manager
-                req1 = comm_world.isend(agnt_pack_rep, dest=rank_index["data_manager"])
+                isends.append(
+                    comm_world.isend(
+                        ("agent_proc", (user, activities, passivities)),
+                        dest=rank_index["data_manager"],
+                    )
+                )
+
+                MPI.Request.waitall(isends)
+                isends.clear()
 
                 # Then send the processed user to the policy process
-                req2 = comm_world.isend(user, dest=rank_index["policy_filter"])
-
-                isends.append(req1)
-                isends.append(req2)
+                isends.append(comm_world.isend(user, dest=rank_index["policy_filter"]))
 
             else:
 
                 print(f"* Agent@{rank} >> Not sending stuff.", flush=True)
 
         else:
+
             print(f"* Agent@{rank} >> waiting isends...", flush=True)
             MPI.Request.waitall(isends)
+
             print(f"* Agent@{rank} >> entering barrier...", flush=True)
             comm_world.barrier()
             break
