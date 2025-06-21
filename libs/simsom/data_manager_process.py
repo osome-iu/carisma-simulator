@@ -75,13 +75,10 @@ def run_data_manager(
 
             # Check if termination signal has been sent
             if status.Get_tag() == 99:
-                print("DataMngr >> stop signal detected", flush=True)
+                print("* DataMngr >> stop signal detected", flush=True)
                 alive = False
             else:
                 sender, content = data
-
-            MPI.Request.waitall(isends)
-            isends.clear()
 
             if alive:
 
@@ -139,12 +136,16 @@ def run_data_manager(
                             rnd.shuffle(users)
                             selected_users.clear()
 
-                    req1 = comm_world.isend(
-                        users_packs_batch,
-                        dest=rank_index["recommender_system"],
-                    )
+                    # Wait for pending isends
+                    MPI.Request.waitall(isends)
+                    isends.clear()
 
-                    isends.append(req1)
+                    isends.append(
+                        comm_world.isend(
+                            users_packs_batch,
+                            dest=rank_index["recommender_system"],
+                        )
+                    )
 
                 elif sender == "policy_proc":
 
@@ -158,9 +159,12 @@ def run_data_manager(
                     raise ValueError
 
         else:
+
+            # Wait for pending isends
+            MPI.Request.waitall(isends)
+
             print("* Data manager >> entering barrier...", flush=True)
             comm_world.barrier()
-            print("* Data manager >> passed barrier", flush=True)
             break
 
     print("* Data manager >> closed.", flush=True)

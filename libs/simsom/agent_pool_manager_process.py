@@ -70,10 +70,10 @@ def run_agent_pool_manager(
                     isends.append(req)
 
         else:
-
+            print("* AgntPoolMngr >> waiting isends...", flush=True)
+            MPI.Request.waitall(isends)
             print("* AgntPoolMngr >> entering barrier...", flush=True)
             comm_world.barrier()
-            print("* AgntPoolMngr >> passed barrier", flush=True)
             break
 
     print("* Agent pool manager >> closed.", flush=True)

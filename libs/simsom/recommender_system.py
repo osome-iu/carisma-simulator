@@ -139,12 +139,13 @@ def run_recommender_system(
 
             if alive:
 
-                # Requesting data to data manager (non blocking)
-                req1 = comm_world.isend(
-                    ("recsys_proc", None),
-                    dest=rank_index["data_manager"],
+                # Requesting data from data manager
+                isends.append(
+                    comm_world.isend(
+                        ("recsys_proc", None),
+                        dest=rank_index["data_manager"],
+                    )
                 )
-                isends.append(req1)
 
                 if iprobe_with_timeout(
                     comm_world,
@@ -192,31 +193,34 @@ def run_recommender_system(
                             # Remove the oldest 1000 messages so we don't run out of memory
                             global_inventory = global_inventory[-1000:]
 
-                        analyzer_pack = (users, activities, passivities)
-
-                        req2 = comm_world.isend(
-                            analyzer_pack, dest=rank_index["analyzer"]
+                        isends.append(
+                            comm_world.isend(
+                                (users, activities, passivities),
+                                dest=rank_index["analyzer"],
+                            )
                         )
-                        isends.append(req2)
 
-                        req3 = comm_world.isend(
-                            users,
-                            dest=rank_index["agent_pool_manager"],
+                        isends.append(
+                            comm_world.isend(
+                                users,
+                                dest=rank_index["agent_pool_manager"],
+                            )
                         )
-                        isends.append(req3)
 
                 else:
+                    print("* RecSys>> (1) waiting isends...", flush=True)
+                    MPI.Request.waitall(isends)
 
                     print("* RecSys>> (1) entering barrier...", flush=True)
                     comm_world.barrier()
-                    print("* RecSys >> (1) passed barrier", flush=True)
                     break
 
         else:
 
+            print("* RecSys>> (2) waiting isends...", flush=True)
+            MPI.Request.waitall(isends)
             print("* RecSys >> (2) entering barrier...", flush=True)
             comm_world.barrier()
-            print("* RecSys >> (2) passed barrier", flush=True)
             break
 
     print("* RecSys >> closed.", flush=True)

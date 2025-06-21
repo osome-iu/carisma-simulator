@@ -70,10 +70,10 @@ def run_agent(
                 print(f"* Agent@{rank} >> Not sending stuff.", flush=True)
 
         else:
-
-            print(f"* Agent@{rank} >> Entering barrier...", flush=True)
+            print(f"* Agent@{rank} >> waiting isends...", flush=True)
+            MPI.Request.waitall(isends)
+            print(f"* Agent@{rank} >> entering barrier...", flush=True)
             comm_world.barrier()
-            print(f"* Agent@{rank} >> Barrier passed.", flush=True)
             break
 
     print(f"* Agent process @rank: {rank} >> closed.", flush=True)

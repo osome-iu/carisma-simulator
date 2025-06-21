@@ -61,9 +61,10 @@ def run_policy_filter(
                     isends.append(req1)
 
         else:
+            print("* PolicyProc >> waiting isends...", flush=True)
+            MPI.Request.waitall(isends)
             print("* PolicyProc >> entering barrier...", flush=True)
             comm_world.barrier()
-            print("* PolicyProc >> passed barrier", flush=True)
             break
 
     print("* PolicyProc >> closed.", flush=True)
