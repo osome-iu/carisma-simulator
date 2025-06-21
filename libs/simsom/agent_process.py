@@ -42,7 +42,7 @@ def run_agent(
 
             # Check for termination
             if status.Get_tag() == 99:
-                print(f"Agent@{rank} >> stop signal detected", flush=True)
+                print(f"* Agent@{rank} >> stop signal detected", flush=True)
                 alive = False
 
             MPI.Request.waitall(isends)
@@ -71,9 +71,9 @@ def run_agent(
 
         else:
 
-            print(f"Agent@{rank} >> Entering barrier...", flush=True)
+            print(f"* Agent@{rank} >> Entering barrier...", flush=True)
             comm_world.barrier()
-            print(f"Agent@{rank} >> Barrier passed.", flush=True)
+            print(f"* Agent@{rank} >> Barrier passed.", flush=True)
             break
 
     print(f"* Agent process @rank: {rank} >> closed.", flush=True)

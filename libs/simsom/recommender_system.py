@@ -205,11 +205,18 @@ def run_recommender_system(
                         )
                         isends.append(req3)
 
+                else:
+
+                    print("* RecSys>> (1) entering barrier...", flush=True)
+                    comm_world.barrier()
+                    print("* RecSys >> (1) passed barrier", flush=True)
+                    break
+
         else:
 
-            print("* RecSys>> entering barrier...", flush=True)
+            print("* RecSys >> (2) entering barrier...", flush=True)
             comm_world.barrier()
-            print("* RecSys >> passed barrier", flush=True)
+            print("* RecSys >> (2) passed barrier", flush=True)
             break
 
     print("* RecSys >> closed.", flush=True)

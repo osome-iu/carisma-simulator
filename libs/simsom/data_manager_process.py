@@ -7,12 +7,6 @@ from mpi4py import MPI
 from mpi_utils import iprobe_with_timeout
 
 
-# Deprecated. (iprobe is too fast and may fail)
-# def flush_incoming_messages(comm, status):
-#     while comm.iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status):
-#         _ = comm.recv(source=status.Get_source(), tag=status.Get_tag(), status=status)
-
-
 class ClockManager:
     """
     Class responsible for clock simulation,
