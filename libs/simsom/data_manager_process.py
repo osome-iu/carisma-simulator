@@ -39,6 +39,7 @@ def run_data_manager(
 ):
 
     print("* Data manager >> running...", flush=True)
+    print(f"* Data manager >> network size: {len(users)}", flush=True)
 
     # Arch status object
     status = MPI.Status()

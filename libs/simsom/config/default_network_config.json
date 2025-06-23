@@ -1,6 +1,7 @@
-{
-    "real_world_netowork": "./data/default_graph.gml",
-    "net_size": 200,
+{   
+    "from_file": 0,
+    "real_world_network": "./data/default_graph.gml",
+    "net_size": 1000,
     "probability_follow": 0.5,
     "avg_n_friend": 3
 }

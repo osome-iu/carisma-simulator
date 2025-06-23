@@ -75,8 +75,8 @@ def main():
 
     # Simulation contstraints (parametrize)
     users = (
-        simtools.init_network(file=network_config["real_world_netowork"])
-        if network_config["real_world_netowork"]
+        simtools.init_network(file=network_config["real_world_network"])
+        if network_config["from_file"] > 0
         else simtools.init_network(
             net_size=network_config["net_size"],
             p=network_config["probability_follow"],
@@ -148,11 +148,19 @@ def main():
     elif rank == RANK_INDEX["agent_pool_manager"]:
 
         run_agent_pool_manager(
-            comm_world=comm_world, rank=rank, size=size, rank_index=RANK_INDEX
+            comm_world=comm_world,
+            rank=rank,
+            size=size,
+            rank_index=RANK_INDEX,
         )
 
     elif rank >= RANK_INDEX["agent_handler"]:
-        run_agent(comm_world=comm_world, rank=rank, size=size, rank_index=RANK_INDEX)
+        run_agent(
+            comm_world=comm_world,
+            rank=rank,
+            size=size,
+            rank_index=RANK_INDEX,
+        )
 
 
 if __name__ == "__main__":
