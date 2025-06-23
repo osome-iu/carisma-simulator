@@ -89,8 +89,8 @@ def run_data_manager(
                     user, new_msgs, passive_actions = content
 
                     # Assign a timestamp
-                    for sender in new_msgs:
-                        sender.time = clock.next_time()
+                    for msg in new_msgs:
+                        msg.time = clock.next_time()
 
                     # print(f"* Data manager >> {user.uid} has {len(new_msgs)} new messages", flush=True)
                     # print(f"* Data manager >> {user.uid} has {len(passive_actions)} new passivities", flush=True)
