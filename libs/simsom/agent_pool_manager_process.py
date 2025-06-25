@@ -68,8 +68,7 @@ def run_agent_pool_manager(
 
                 for user in data:
                     handler_rank = rnd.choice(agent_handlers_ranks)
-                    req = comm_world.isend(user, dest=handler_rank)
-                    isends.append(req)
+                    isends.append(comm_world.isend(user, dest=handler_rank))
 
         else:
 

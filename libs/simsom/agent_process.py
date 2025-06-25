@@ -35,6 +35,7 @@ def run_agent(
             source=MPI.ANY_SOURCE,
             tag=MPI.ANY_TAG,
             status=status,
+            timeout=5,
         ):
 
             # Receive package that contains (friend ids, messages) from agent_pool_manager
@@ -50,21 +51,27 @@ def run_agent(
                 user = data  # Just for readability
                 activities, passivities = user.make_actions()
 
-                # Repack the agent (updated feed) and activities (messages he produced)
-
-                # Send the processed user first to the data manager
-                isends.append(
-                    comm_world.isend(
-                        ("agent_proc", (user, activities, passivities)),
-                        dest=rank_index["data_manager"],
-                    )
-                )
+                # Repack the user (updated feed) and activities (messages he produced)
+                processed_user_pack = (user, activities, passivities)
 
                 MPI.Request.waitall(isends)
                 isends.clear()
 
+                # Send the processed user first to the data manager
+                isends.append(
+                    comm_world.isend(
+                        ("agent_proc", processed_user_pack),
+                        dest=rank_index["data_manager"],
+                    )
+                )
+
                 # Then send the processed user to the policy process
-                isends.append(comm_world.isend(user, dest=rank_index["policy_filter"]))
+                isends.append(
+                    comm_world.isend(
+                        user,
+                        dest=rank_index["policy_filter"],
+                    )
+                )
 
             else:
 

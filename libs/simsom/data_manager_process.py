@@ -58,6 +58,9 @@ def run_data_manager(
 
     isends = []
 
+    # Worker process ranks
+    worker_ranks = list(range(5, size))
+
     # Bootstrap sync
     comm_world.barrier()
 
@@ -85,18 +88,31 @@ def run_data_manager(
 
                 if sender == "agent_proc":
 
-                    # Unpack the agent + incoming messages and passive actions
-                    user, new_msgs, passive_actions = content
+                    # LOGIC:
+                    # Once a single worker process sends a processed user,
+                    # triggers a scan to possibly collect other processed users.
+                    # The scan look at all worker processes quickly.
+                    # If some users is not collected would be in the very next.
+                    # It's a way to give priority to worker processes.
 
-                    # Assign a timestamp
-                    for msg in new_msgs:
-                        msg.time = clock.next_time()
+                    rnd.shuffle(worker_ranks)
 
-                    # print(f"* Data manager >> {user.uid} has {len(new_msgs)} new messages", flush=True)
-                    # print(f"* Data manager >> {user.uid} has {len(passive_actions)} new passivities", flush=True)
+                    for source in worker_ranks:
 
-                    outgoing_messages[user.uid].extend(new_msgs)
-                    outgoing_passivities[user.uid].extend(passive_actions)
+                        # Unpack the agent + incoming messages and passive actions
+                        user, new_msgs, passive_actions = content
+
+                        # Assign a timestamp
+                        for msg in new_msgs:
+                            msg.time = clock.next_time()
+
+                        # Updating main structures
+                        outgoing_messages[user.uid].extend(new_msgs)
+                        outgoing_passivities[user.uid].extend(passive_actions)
+
+                        # Scan for incoming processed user from a worker
+                        if comm_world.iprobe(source=source, status=status):
+                            _, content = comm_world.recv(source=source, status=status)
 
                 elif sender == "recsys_proc":
 
@@ -162,7 +178,9 @@ def run_data_manager(
         else:
 
             # Wait for residual pending isends
-            print("* Data manager >> finalizing isends...", flush=True)
+            for r in isends:
+                r.cancel()
+            print("* Data manager >> waiting isends...", flush=True)
             MPI.Request.waitall(isends)
 
             print("* Data manager >> entering barrier...", flush=True)
