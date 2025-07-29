@@ -11,9 +11,10 @@ def iprobe_with_timeout(
     *,
     source=MPI.ANY_SOURCE,
     tag=MPI.ANY_TAG,
-    timeout=3.0,
+    timeout=5.0,
     check_interval=0.001,
     status=None,
+    pname="Proc",
 ):
     """
     Non-blocking probe with timeout.
@@ -35,5 +36,7 @@ def iprobe_with_timeout(
         if comm_world.iprobe(source=source, tag=tag, status=status):
             return True
         time.sleep(check_interval)
+
+    print(f"* {pname} >> timeout", flush=True)
 
     return False

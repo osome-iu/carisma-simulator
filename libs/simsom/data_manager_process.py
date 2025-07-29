@@ -71,22 +71,28 @@ def run_data_manager(
             source=MPI.ANY_SOURCE,
             tag=MPI.ANY_TAG,
             status=status,
+            pname="DataMngr",
         ):
 
-            data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
-            sender, content = None, []
+            # # Check if termination signal has been sent
+            # if status.Get_tag() == 99 and alive:
+            #     print("* DataMngr >> stop signal detected", flush=True)
+            #     alive = False
 
             # Check if termination signal has been sent
-            if status.Get_tag() == 99:
+            if sender == "analyzer" and payload == "STOP" and alive:
                 print("* DataMngr >> stop signal detected", flush=True)
                 alive = False
-            else:
-                sender, content = data
+
+            # Wait for pending isends
+            MPI.Request.waitall(isends)
+            isends.clear()
 
             if alive:
 
-                if sender == "agent_proc":
+                if sender == "worker":
 
                     # LOGIC:
                     # Once a single worker process sends a processed user,
@@ -100,21 +106,22 @@ def run_data_manager(
                     for source in worker_ranks:
 
                         # Unpack the agent + incoming messages and passive actions
-                        user, new_msgs, passive_actions = content
+                        user, new_msgs, passive_actions = payload
 
                         # Assign a timestamp
                         for msg in new_msgs:
-                            msg.time = clock.next_time()
+                            msg.time = clock.next_time()  # type: ignore
 
                         # Updating main structures
-                        outgoing_messages[user.uid].extend(new_msgs)
-                        outgoing_passivities[user.uid].extend(passive_actions)
+                        outgoing_messages[user.uid].extend(new_msgs)  # type: ignore
+                        outgoing_passivities[user.uid].extend(passive_actions)  # type: ignore
 
-                        # Scan for incoming processed user from a worker
+                        # Scan for incoming processed user from current source worker
                         if comm_world.iprobe(source=source, status=status):
-                            _, content = comm_world.recv(source=source, status=status)
+                            # If new processed user available receive and update content
+                            _, payload = comm_world.recv(source=source, status=status)
 
-                elif sender == "recsys_proc":
+                elif sender == "recsys" and payload == "dataReq":
 
                     users_packs_batch = []
 
@@ -153,18 +160,14 @@ def run_data_manager(
                             rnd.shuffle(users)
                             selected_users.clear()
 
-                    # Wait for pending isends
-                    MPI.Request.waitall(isends)
-                    isends.clear()
-
                     isends.append(
                         comm_world.isend(
-                            users_packs_batch,
+                            ("dataMngr", users_packs_batch),
                             dest=rank_index["recommender_system"],
                         )
                     )
 
-                elif sender == "policy_proc":
+                elif sender == "policyMngr":
 
                     print("* Data manager >> data from policy", flush=True)
                     # Get the moderated user/content info and apply logic to data
@@ -177,13 +180,9 @@ def run_data_manager(
 
         else:
 
-            # Wait for residual pending isends
-            for r in isends:
-                r.cancel()
-            print("* Data manager >> waiting isends...", flush=True)
-            MPI.Request.waitall(isends)
-
+            print(f"* DataMngr >> closing with {len(isends)} isends...", flush=True)
             print("* Data manager >> entering barrier...", flush=True)
+            print(f"* DataMngr >> final clock: {clock.current_time} ")
             comm_world.barrier()
             break
 

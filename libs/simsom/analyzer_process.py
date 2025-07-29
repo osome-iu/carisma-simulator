@@ -205,10 +205,9 @@ def run_analyzer(
         random.shuffle(proc_ranks)
         for rank in proc_ranks:
             if rank != rank_index["analyzer"]:
-                comm_world.send("STOP", dest=rank, tag=99)
-                print(
-                    f"* Analyzer >> sent termination signal to rank {rank}", flush=True
-                )
+                # comm_world.send("STOP", dest=rank, tag=99)
+                comm_world.send(("analyzer", "STOP"), dest=rank)
+                print(f"* Analyzer >> sent termination signal to: {rank}", flush=True)
 
     alive = True
 
@@ -222,6 +221,7 @@ def run_analyzer(
             source=MPI.ANY_SOURCE,
             tag=MPI.ANY_TAG,
             status=status,
+            pname="Analyzer",
         ):
 
             # Wait for data from policy filter

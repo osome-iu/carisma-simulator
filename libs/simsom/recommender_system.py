@@ -141,101 +141,88 @@ def run_recommender_system(
             source=MPI.ANY_SOURCE,
             tag=MPI.ANY_TAG,
             status=status,
+            pname="RecSys",
         ):
 
             # Wait for agent pool manager requesting data (or stop signal from analyzer)
-            _ = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
-            # Check for termination
-            if status.Get_tag() == 99:
-                print("* recsys >> (1) stop signal detected ", flush=True)
+            # Check if termination signal has been sent
+            if sender == "analyzer" and payload == "STOP" and alive:
+                print("* RecSys >> stop signal detected", flush=True)
                 alive = False
+
+            # Wait for pending isends
+            MPI.Request.waitall(isends)
+            isends.clear()
 
             if alive:
 
-                # Requesting data from data manager
-                isends.append(
-                    comm_world.isend(
-                        ("recsys_proc", None),
-                        dest=rank_index["data_manager"],
+                if sender == "agntPoolMngr" and payload == "dataReq":
+
+                    # Requesting data from data manager
+                    isends.append(
+                        comm_world.isend(
+                            ("recsys", "dataReq"),
+                            dest=rank_index["data_manager"],
+                        )
                     )
-                )
 
-                if iprobe_with_timeout(
-                    comm_world,
-                    source=MPI.ANY_SOURCE,
-                    tag=MPI.ANY_TAG,
-                    status=status,
-                ):
+                if sender == "dataMngr":
 
-                    # Wait for data from data manager (or stop signal)
-                    data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+                    data = payload
 
-                    # Check for termination
-                    if status.Get_tag() == 99:
-                        print("* recsys >> (2) stop signal detected ", flush=True)
-                        alive = False
+                    users = []
+                    passivities = []
+                    activities = []
 
-                    if alive:
+                    # Unpack the data and iterate over the contents
+                    for user, active_actions, passive_actions in data:
 
-                        users = []
-                        passivities = []
-                        activities = []
-                        # Unpack the data and iterate over the contents
-                        for user, active_actions, passive_actions in data:
-                            # Get the message from inside and outside the network
-                            in_messages = []
-                            out_messages = []
-                            # Keep track of the messages using a global inventory
-                            global_inventory.extend(active_actions)
-                            for activity in global_inventory:
-                                if activity.uid in user.friends:
-                                    in_messages.append(activity)
-                                else:
-                                    out_messages.append(activity)
-                            # Build the newsfeed for the agent
-                            user.newsfeed = build_feed(user, in_messages, out_messages)
-                            # Collect the user and the actions so we can send them to the agent pool manager and analyzer
-                            users.append(user)
-                            passivities.extend(passive_actions)
-                            activities.extend(active_actions)
+                        # Get the message from inside and outside the network
+                        in_messages = []
+                        out_messages = []
 
-                        if len(global_inventory) > 2000:
-                            # Remove the oldest 1000 messages so we don't run out of memory
-                            global_inventory = global_inventory[-1000:]
+                        # Keep track of the messages using a global inventory
+                        global_inventory.extend(active_actions)
+                        for activity in global_inventory:
+                            if activity.uid in user.friends:  # type: ignore
+                                in_messages.append(activity)
+                            else:
+                                out_messages.append(activity)
 
-                        MPI.Request.waitall(isends)
-                        isends.clear()
+                        # Build the newsfeed for the agent
+                        user.newsfeed = build_feed(user, in_messages, out_messages)  # type: ignore
 
-                        isends.append(
-                            comm_world.isend(
-                                (users, activities, passivities),
-                                dest=rank_index["analyzer"],
-                            )
+                        # Collect the user and the actions so we can send them to the agent pool manager and analyzer
+                        users.append(user)
+                        passivities.extend(passive_actions)
+                        activities.extend(active_actions)
+
+                    if len(global_inventory) > 2000:
+                        # Remove the oldest 1000 messages so we don't run out of memory
+                        global_inventory = global_inventory[-1000:]
+
+                    isends.append(
+                        comm_world.isend(
+                            (users, activities, passivities),
+                            dest=rank_index["analyzer"],
                         )
+                    )
 
-                        isends.append(
-                            comm_world.isend(
-                                users,
-                                dest=rank_index["agent_pool_manager"],
-                            )
+                    isends.append(
+                        comm_world.isend(
+                            ("recSys", users),
+                            dest=rank_index["agent_pool_manager"],
                         )
-
-                else:
-
-                    print("* RecSys >> (1) waiting isends...", flush=True)
-                    MPI.Request.waitall(isends)
-
-                    print("* RecSys >> (1) entering barrier...", flush=True)
-                    comm_world.barrier()
-                    break
+                    )
 
         else:
 
-            print("* RecSys >> (2) waiting isends...", flush=True)
-            MPI.Request.waitall(isends)
+            print(f"* RecSys >> closing with {len(isends)} isends...", flush=True)
+            # MPI.Request.waitall(isends)
 
-            print("* RecSys >> (2) entering barrier...", flush=True)
+            print("* RecSys >> entering barrier...", flush=True)
             comm_world.barrier()
             break
 

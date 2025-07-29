@@ -33,40 +33,42 @@ def run_policy_filter(
             source=MPI.ANY_SOURCE,
             tag=MPI.ANY_TAG,
             status=status,
+            pname="PolicyMngr",
         ):
 
-            data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
-            # Check for termination
-            if status.Get_tag() == 99:
-                print("* PolicyProc >> stop signal detected", flush=True)
+            # Check if termination signal has been sent
+            if sender == "analyzer" and payload == "STOP" and alive:
+                print("* PolicyMngr >> stop signal detected", flush=True)
                 alive = False
 
-            if alive:
+            # Wait for pending isends
+            MPI.Request.waitall(isends)
+            isends.clear()
 
-                _ = data  # TO BE IMPLEMENTED
+            if alive and sender == "worker":
+
+                _ = payload  # TO BE IMPLEMENTED
 
                 count += 1
 
                 if count == 10:
 
-                    MPI.Request.waitall(isends)
-                    isends.clear()
-
                     isends.append(
                         comm_world.isend(
-                            ("policy_proc", None),
+                            ("policyMngr", None),
                             dest=rank_index["data_manager"],
                         )
                     )
 
         else:
 
-            print("* PolicyProc >> waiting isends...", flush=True)
-            MPI.Request.waitall(isends)
+            print(f"* PolicyMngr >> closing with {len(isends)} isends...", flush=True)
+            # MPI.Request.waitall(isends)
 
-            print("* PolicyProc >> entering barrier...", flush=True)
+            print("* PolicyMngr >> entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print("* PolicyProc >> closed.", flush=True)
+    print("* PolicyMngr >> closed.", flush=True)

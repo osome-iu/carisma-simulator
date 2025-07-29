@@ -1,5 +1,5 @@
 """
-Utiliy script to run the simulation with 'python simsom.py'
+Utiliy script to run the simulation with 'python run_simsom.py'
 """
 
 import subprocess
@@ -9,7 +9,7 @@ import argparse
 def main():
 
     # Default simulation parameters (change these manually if needed)
-    default_num_procs = 32
+    default_num_procs = 8  # 16
 
     # Optional CLI override
     parser = argparse.ArgumentParser(description="Run the MPI simulation.")

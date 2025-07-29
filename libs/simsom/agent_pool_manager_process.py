@@ -20,9 +20,11 @@ def run_agent_pool_manager(
     # Status of the processes
     status = MPI.Status()
 
-    # Ranks of all available agent handler
+    # Ranks of all available workers
     agent_handlers_ranks = list(range(rank_index["agent_handler"], size))
-    # print("- Agent Pool Manager >> agent process ranks", agent_handlers_ranks, flush=True)
+    print(
+        "* Agent Pool Manager >> available workers:", agent_handlers_ranks, flush=True
+    )
 
     # Process status
     alive = True
@@ -40,7 +42,7 @@ def run_agent_pool_manager(
             # Request data from recommender system process
             isends.append(
                 comm_world.isend(
-                    "agents_needed",
+                    ("agntPoolMngr", "dataReq"),
                     dest=rank_index["recommender_system"],
                 )
             )
@@ -50,30 +52,33 @@ def run_agent_pool_manager(
             source=MPI.ANY_SOURCE,
             tag=MPI.ANY_TAG,
             status=status,
+            pname="AgntPoolMngr",
         ):
 
             # Receive incoming data (from any process is sending)
-            data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
-            # Check for termination
-            if status.Get_tag() == 99:
+            # Check if termination signal has been sent
+            if sender == "analyzer" and payload == "STOP" and alive:
                 print("* AgntPoolMngr >> stop signal detected", flush=True)
                 alive = False
 
-            if alive:
+            # Wait for pending isends
+            MPI.Request.waitall(isends)
+            isends.clear()
 
-                # Wait for pending isends
-                MPI.Request.waitall(isends)
-                isends.clear()
+            if alive and sender == "recSys":
 
-                for user in data:
+                for user in payload:
                     handler_rank = rnd.choice(agent_handlers_ranks)
-                    isends.append(comm_world.isend(user, dest=handler_rank))
+                    isends.append(
+                        comm_world.isend(("agntPoolMngr", user), dest=handler_rank)
+                    )
 
         else:
 
-            print("* AgntPoolMngr >> waiting isends...", flush=True)
-            MPI.Request.waitall(isends)
+            print(f"* AgntPoolMngr >> closing with {len(isends)} isends...", flush=True)
+            # MPI.Request.waitall(isends)
 
             print("* AgntPoolMngr >> entering barrier...", flush=True)
             comm_world.barrier()

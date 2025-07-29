@@ -36,31 +36,33 @@ def run_agent(
             tag=MPI.ANY_TAG,
             status=status,
             timeout=5,
+            pname=f"Worker_{rank}",
         ):
 
             # Receive package that contains (friend ids, messages) from agent_pool_manager
-            data = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
-            # Check for termination
-            if status.Get_tag() == 99:
-                print(f"* Agent@{rank} >> stop signal detected", flush=True)
+            # Check if termination signal has been sent
+            if sender == "analyzer" and payload == "STOP" and alive:
+                print("* AgntPoolMngr >> stop signal detected", flush=True)
                 alive = False
 
-            if alive:
+            # Wait for pending isends
+            MPI.Request.waitall(isends)
+            isends.clear()
 
-                user = data  # Just for readability
-                activities, passivities = user.make_actions()
+            if alive and sender == "agntPoolMngr":
+
+                user = payload  # Just for readability
+                activities, passivities = user.make_actions()  # type: ignore
 
                 # Repack the user (updated feed) and activities (messages he produced)
                 processed_user_pack = (user, activities, passivities)
 
-                MPI.Request.waitall(isends)
-                isends.clear()
-
                 # Send the processed user first to the data manager
                 isends.append(
                     comm_world.isend(
-                        ("agent_proc", processed_user_pack),
+                        ("worker", processed_user_pack),
                         dest=rank_index["data_manager"],
                     )
                 )
@@ -68,19 +70,15 @@ def run_agent(
                 # Then send the processed user to the policy process
                 isends.append(
                     comm_world.isend(
-                        user,
+                        ("worker", user),
                         dest=rank_index["policy_filter"],
                     )
                 )
 
-            else:
-
-                print(f"* Agent@{rank} >> Not sending stuff.", flush=True)
-
         else:
 
-            print(f"* Agent@{rank} >> waiting isends...", flush=True)
-            MPI.Request.waitall(isends)
+            print(f"* Agent@{rank} >> closing with {len(isends)} isends...", flush=True)
+            # MPI.Request.waitall(isends)
 
             print(f"* Agent@{rank} >> entering barrier...", flush=True)
             comm_world.barrier()
