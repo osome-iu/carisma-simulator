@@ -85,8 +85,9 @@ def run_data_manager(
                 alive = False
 
             # Wait for pending isends
-            MPI.Request.waitall(isends)
-            isends.clear()
+            if len(isends) > 100 or not alive:
+                MPI.Request.waitall(isends)
+                isends.clear()
 
             if alive:
 
