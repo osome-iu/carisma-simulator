@@ -1,5 +1,5 @@
 from mpi4py import MPI
-from mpi_utils import iprobe_with_timeout
+from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash
 
 
 def run_policy_filter(
@@ -42,12 +42,15 @@ def run_policy_filter(
             if sender == "analyzer" and payload == "STOP" and alive:
                 print("* PolicyMngr >> stop signal detected", flush=True)
                 alive = False
+            elif payload == "STOP" and alive:
+                print("* PolicyMngr >> crashing...", flush=True)
+                alive = False
 
             # Wait for pending isends
             MPI.Request.waitall(isends)
             isends.clear()
 
-            if alive and sender == "worker":
+            if alive:
 
                 _ = payload  # TO BE IMPLEMENTED
 
@@ -65,7 +68,16 @@ def run_policy_filter(
         else:
 
             print(f"* PolicyMngr >> closing with {len(isends)} isends...", flush=True)
-            # MPI.Request.waitall(isends)
+
+            if alive:
+
+                handle_crash(
+                    comm_world=comm_world,
+                    status=status,
+                    srank=rank,
+                    srole="policy_filter",
+                    pname="PolicyMngr",
+                )
 
             print("* PolicyMngr >> entering barrier...", flush=True)
             comm_world.barrier()

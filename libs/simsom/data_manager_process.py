@@ -4,7 +4,7 @@ The data manager is responsible for choosing Users to run, save on disk generate
 
 import random as rnd
 from mpi4py import MPI
-from mpi_utils import iprobe_with_timeout
+from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash
 
 
 class ClockManager:
@@ -76,14 +76,12 @@ def run_data_manager(
 
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
-            # # Check if termination signal has been sent
-            # if status.Get_tag() == 99 and alive:
-            #     print("* DataMngr >> stop signal detected", flush=True)
-            #     alive = False
-
             # Check if termination signal has been sent
             if sender == "analyzer" and payload == "STOP" and alive:
                 print("* DataMngr >> stop signal detected", flush=True)
+                alive = False
+            elif payload == "STOP" and alive:
+                print("* DataMngr >> crashing...", flush=True)
                 alive = False
 
             # Wait for pending isends
@@ -175,15 +173,27 @@ def run_data_manager(
 
                 else:
 
-                    print("* Data manager >> unknown message", flush=True)
+                    print("* Data manager >> unknown sender", flush=True)
                     raise ValueError
 
         else:
 
             print(f"* DataMngr >> closing with {len(isends)} isends...", flush=True)
-            print("* Data manager >> entering barrier...", flush=True)
-            print(f"* DataMngr >> final clock: {clock.current_time} ")
+
+            if alive:
+
+                handle_crash(
+                    comm_world=comm_world,
+                    status=status,
+                    srank=rank,
+                    srole="data_manager",
+                    pname="DataMngr",
+                )
+
+            print("* DataMngr >> entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print("* Data manager >> closed.", flush=True)
+    print("* DataMngr >> closed.", flush=True)
+
+    print(f"* DataMngr >> final clock: {clock.current_time} ")

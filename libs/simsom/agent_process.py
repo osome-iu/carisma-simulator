@@ -44,7 +44,10 @@ def run_agent(
 
             # Check if termination signal has been sent
             if sender == "analyzer" and payload == "STOP" and alive:
-                print("* AgntPoolMngr >> stop signal detected", flush=True)
+                print(f"* Worker_{rank} >> stop signal detected", flush=True)
+                alive = False
+            elif payload == "STOP" and alive:
+                print(f"* Worker_{rank} >> crashing...", flush=True)
                 alive = False
 
             # Wait for pending isends
@@ -77,11 +80,16 @@ def run_agent(
 
         else:
 
-            print(f"* Agent@{rank} >> closing with {len(isends)} isends...", flush=True)
-            # MPI.Request.waitall(isends)
+            print(
+                f"* Worker_{rank} >> closing with {len(isends)} isends...",
+                flush=True,
+            )
 
-            print(f"* Agent@{rank} >> entering barrier...", flush=True)
+            if alive:
+                print(f"* Worker_{rank} >> crashing...", flush=True)
+
+            print(f"* Worker_{rank} >> entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print(f"* Agent process @rank: {rank} >> closed.", flush=True)
+    print(f"* Worker_{rank} >> closed.", flush=True)

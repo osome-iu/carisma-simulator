@@ -11,7 +11,7 @@ from mpi4py import MPI
 import simtools
 import pandas as pd
 import random
-from mpi_utils import iprobe_with_timeout
+from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash
 
 # Path files
 time_now = int(time.time())
@@ -193,22 +193,6 @@ def run_analyzer(
     # Initialize files
     simtools.init_files(folder_path, file_path_activity, file_path_passivity)
 
-    # Function to terminate the process and print information
-    def clean_termination_v2(rank_index: dict):
-        """
-        Clean termination of the process
-        """
-
-        print("* Analyzer >> GOAL REACHED, TERMINATING SIMULATION...", flush=True)
-
-        proc_ranks = list(range(comm_world.size))
-        random.shuffle(proc_ranks)
-        for rank in proc_ranks:
-            if rank != rank_index["analyzer"]:
-                # comm_world.send("STOP", dest=rank, tag=99)
-                comm_world.send(("analyzer", "STOP"), dest=rank)
-                print(f"* Analyzer >> sent termination signal to: {rank}", flush=True)
-
     alive = True
 
     # Bootstrap sync
@@ -224,15 +208,23 @@ def run_analyzer(
             pname="Analyzer",
         ):
 
-            # Wait for data from policy filter
-            data = comm_world.recv(
-                source=rank_index["recommender_system"], status=status
-            )
+            # Receive incoming data (from any process is sending)
+            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+
+            _ = sender  # not used, temporary for readability
+
+            # Check if termination signal has been sent (crash)
+            if sender == "analyzer" and payload == "STOP" and alive:
+                print("* Analyzer >> stop signal detected", flush=True)
+                alive = False
+            elif payload == "STOP" and alive:
+                print("* Analyzer >> crashing...", flush=True)
+                alive = False
 
             if alive:
 
                 # Unpack the data
-                users, activities, passivities = data
+                users, activities, passivities = payload
                 # Count the number of messages
                 n_data += len(activities)
                 # Count the number of user until now
@@ -254,11 +246,11 @@ def run_analyzer(
 
                 try:
                     for m in activities:
-                        quality_sum += m.quality
-                        interval_quality += m.quality
+                        quality_sum += m.quality  # type: ignore
+                        interval_quality += m.quality  # type: ignore
                         message_count += 1
                         if csv_out_act:
-                            csv_out_act.writerow(m.write_action())
+                            csv_out_act.writerow(m.write_action())  # type: ignore
                 finally:
                     if out_act:
                         # TO FIX: out_act possibly not bound
@@ -271,7 +263,7 @@ def run_analyzer(
                     ) as out_pas:
                         csv_out_pas = csv.writer(out_pas)
                         for a in passivities:
-                            csv_out_pas.writerow(a.write_action())
+                            csv_out_pas.writerow(a.write_action())  # type: ignore
 
                 if verbose:
                     if message_count != 0 and intermediate_n_user % print_interval == 0:
@@ -288,7 +280,14 @@ def run_analyzer(
                     # Stop and terminate the process
                     if n_data >= max_iteration_target:
 
-                        clean_termination_v2(rank_index=rank_index)
+                        # clean_termination_v2(rank_index=rank_index)
+                        clean_termination(
+                            comm_world=comm_world,
+                            sender_rank=rank,
+                            sender_role="analyzer",
+                            log_name="Analyzer",
+                            message="GOAL REACHED, TERMINATING SIMULATION...",
+                        )
 
                         # Resize the output file to the number of messages
                         resize_output(max_iteration_target)
@@ -305,7 +304,7 @@ def run_analyzer(
                 elif sliding_window_method:
 
                     # Save the quality of the messages in the current window
-                    current_quality_list.extend([m.quality for m in activities])
+                    current_quality_list.extend([m.quality for m in activities])  # type: ignore
 
                     # Calculate the average quality for this window and compare to the previous one,
                     # if the abs difference is less than the threshold break and send termination signal
@@ -321,7 +320,14 @@ def run_analyzer(
                                 abs(current_quality - previous_quality)
                                 <= sliding_window_threshold
                             ):
-                                clean_termination_v2(rank_index=rank_index)
+                                # clean_termination_v2(rank_index=rank_index)
+                                clean_termination(
+                                    comm_world=comm_world,
+                                    sender_rank=rank,
+                                    sender_role="analyzer",
+                                    log_name="Analyzer",
+                                    message="GOAL REACHED, TERMINATING SIMULATION...",
+                                )
                                 # Resize the output file to the number of messages
                                 # resize_output(n_data)
                                 print(
@@ -347,7 +353,7 @@ def run_analyzer(
 
                     for user in users:
                         ema_users.append(user)  # ???
-                        feeds[user.uid] = user.newsfeed
+                        feeds[user.uid] = user.newsfeed  # type: ignore
 
                     if len(ema_users) >= n_users:
                         # NOTE: ema_users used only for len, pls implement a counter
@@ -388,7 +394,14 @@ def run_analyzer(
                                     flush=True,
                                 )
 
-                                clean_termination_v2(rank_index=rank_index)
+                                # clean_termination_v2(rank_index=rank_index)
+                                clean_termination(
+                                    comm_world=comm_world,
+                                    sender_rank=rank,
+                                    sender_role="analyzer",
+                                    log_name="Analyzer",
+                                    message="GOAL REACHED, TERMINATING SIMULATION...",
+                                )
 
                                 # Resize the output file to the number of messages
                                 # resize_output(max_iteration_target)
@@ -408,6 +421,16 @@ def run_analyzer(
                                 )
 
         else:
+
+            if alive:
+
+                handle_crash(
+                    comm_world=comm_world,
+                    status=status,
+                    srank=rank,
+                    srole="analyzer",
+                    pname="Analyzer",
+                )
 
             print("* Analyzer >> entering barrier...", flush=True)
             comm_world.barrier()

@@ -1,6 +1,6 @@
 from mpi4py import MPI
 from collections import Counter
-from mpi_utils import iprobe_with_timeout
+from mpi_utils import iprobe_with_timeout, handle_crash
 
 
 def calculate_cosine_similarity(list_a: list, list_b: list) -> float:
@@ -151,6 +151,9 @@ def run_recommender_system(
             if sender == "analyzer" and payload == "STOP" and alive:
                 print("* RecSys >> stop signal detected", flush=True)
                 alive = False
+            elif payload == "STOP" and alive:
+                print("* RecSys >> crashing...", flush=True)
+                alive = False
 
             # Wait for pending isends
             MPI.Request.waitall(isends)
@@ -205,7 +208,7 @@ def run_recommender_system(
 
                     isends.append(
                         comm_world.isend(
-                            (users, activities, passivities),
+                            ("recSys", (users, activities, passivities)),
                             dest=rank_index["analyzer"],
                         )
                     )
@@ -220,7 +223,16 @@ def run_recommender_system(
         else:
 
             print(f"* RecSys >> closing with {len(isends)} isends...", flush=True)
-            # MPI.Request.waitall(isends)
+
+            if alive:
+
+                handle_crash(
+                    comm_world=comm_world,
+                    status=status,
+                    srank=rank,
+                    srole="recommender_system",
+                    pname="RecSys",
+                )
 
             print("* RecSys >> entering barrier...", flush=True)
             comm_world.barrier()
