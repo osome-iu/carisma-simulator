@@ -148,19 +148,18 @@ def run_recommender_system(
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
             # Check if termination signal has been sent
-            if sender == "analyzer" and payload == "STOP" and alive:
-                print("* RecSys >> stop signal detected", flush=True)
-                alive = False
-            elif payload == "STOP" and alive:
-                print("* RecSys >> crashing...", flush=True)
-                alive = False
-
-            # Wait for pending isends
-            if len(isends) > 100 or not alive:
+            if alive and payload == "STOP":
+                print("* RecSys >> stop signal detected...", flush=True)
                 MPI.Request.waitall(isends)
                 isends.clear()
+                alive = False
 
             if alive:
+
+                # Wait for pending isends
+                if len(isends) > 100:
+                    MPI.Request.waitall(isends)
+                    isends.clear()
 
                 if sender == "agntPoolMngr" and payload == "dataReq":
 
@@ -226,6 +225,8 @@ def run_recommender_system(
             print(f"* RecSys >> closing with {len(isends)} isends...", flush=True)
 
             if alive:
+
+                MPI.Request.waitall(isends)
 
                 handle_crash(
                     comm_world=comm_world,

@@ -10,7 +10,6 @@ from collections import Counter
 from mpi4py import MPI
 import simtools
 import pandas as pd
-import random
 from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash
 
 # Path files
@@ -39,6 +38,7 @@ def resize_output(size: int):
         index=False,
         encoding="utf-8",
     )
+
     # get last user id from activity file so we can clean also the passivity file
     last_user = df.tail(1).user_id.values[0]
     df = pd.read_csv(file_path_passivity)
@@ -214,11 +214,8 @@ def run_analyzer(
             _ = sender  # not used, temporary for readability
 
             # Check if termination signal has been sent (crash)
-            if sender == "analyzer" and payload == "STOP" and alive:
-                print("* Analyzer >> stop signal detected", flush=True)
-                alive = False
-            elif payload == "STOP" and alive:
-                print("* Analyzer >> crashing...", flush=True)
+            if alive and payload == "STOP":
+                print("* Analyzer >> stop signal detected...", flush=True)
                 alive = False
 
             if alive:

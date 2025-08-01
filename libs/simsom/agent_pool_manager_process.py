@@ -5,7 +5,7 @@ Main task is to dispatch User/Agent objects to agent processes.
 
 import random as rnd
 from mpi4py import MPI
-from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash
+from mpi_utils import iprobe_with_timeout, handle_crash
 
 
 def run_agent_pool_manager(
@@ -61,19 +61,18 @@ def run_agent_pool_manager(
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
             # Check if termination signal has been sent
-            if sender == "analyzer" and payload == "STOP" and alive:
-                print("* AgentPoolMngr >> stop signal detected", flush=True)
-                alive = False
-            elif payload == "STOP" and alive:
-                print("* AgentPoolMngr >> crashing...", flush=True)
-                alive = False
-
-            # Wait for pending isends
-            if len(isends) > 100 or not alive:
+            if alive and payload == "STOP":
+                print("* AgentPoolMngr >> stop signal detected...", flush=True)
                 MPI.Request.waitall(isends)
                 isends.clear()
+                alive = False
 
             if alive:
+
+                # Wait for pending isends
+                if len(isends) > 100 or not alive:
+                    MPI.Request.waitall(isends)
+                    isends.clear()
 
                 for user in payload:
                     handler_rank = rnd.choice(agent_handlers_ranks)
@@ -91,6 +90,8 @@ def run_agent_pool_manager(
             )
 
             if alive:
+
+                MPI.Request.waitall(isends)
 
                 handle_crash(
                     comm_world=comm_world,

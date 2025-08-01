@@ -9,7 +9,7 @@ import argparse
 def main():
 
     # Default simulation parameters (change these manually if needed)
-    default_num_procs = 32
+    default_num_procs = 8
 
     # Optional CLI override
     parser = argparse.ArgumentParser(description="Run the MPI simulation.")

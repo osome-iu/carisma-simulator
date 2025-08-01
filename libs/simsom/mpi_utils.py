@@ -89,7 +89,7 @@ def handle_crash(comm_world, status, srank: int, srole: str, pname: str):
         message="crashing...",
     )
 
-    # Switch in consumer mode
+    # Switch to consumer mode
     while iprobe_with_timeout(
         comm_world=comm_world,
         status=status,

@@ -43,25 +43,24 @@ def run_agent(
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
             # Check if termination signal has been sent
-            if sender == "analyzer" and payload == "STOP" and alive:
+            if alive and payload == "STOP":
                 print(f"* Worker_{rank} >> stop signal detected", flush=True)
-                alive = False
-            elif payload == "STOP" and alive:
-                print(f"* Worker_{rank} >> crashing...", flush=True)
-                alive = False
-
-            # Wait for pending isends
-            if len(isends) > 100 or not alive:
                 MPI.Request.waitall(isends)
                 isends.clear()
+                alive = False
 
-            if alive and sender == "agntPoolMngr":
+            if alive:
 
                 user = payload  # Just for readability
                 activities, passivities = user.make_actions()  # type: ignore
 
                 # Repack the user (updated feed) and activities (messages he produced)
                 processed_user_pack = (user, activities, passivities)
+
+                # Wait for pending isends
+                if len(isends) > 100:
+                    MPI.Request.waitall(isends)
+                    isends.clear()
 
                 # Send the processed user first to the data manager
                 isends.append(
@@ -87,7 +86,10 @@ def run_agent(
             )
 
             if alive:
+
                 print(f"* Worker_{rank} >> crashing...", flush=True)
+                MPI.Request.waitall(isends)
+                # TODO: handle crash
 
             print(f"* Worker_{rank} >> entering barrier...", flush=True)
             comm_world.barrier()
