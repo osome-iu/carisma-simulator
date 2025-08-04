@@ -4,7 +4,8 @@ The data manager is responsible for choosing Users to run, save on disk generate
 
 import random as rnd
 from mpi4py import MPI
-from mpi_utils import iprobe_with_timeout, handle_crash
+from mpi_utils import iprobe_with_timeout, handle_crash, gettimestamp
+import os
 
 
 class ClockManager:
@@ -38,7 +39,7 @@ def run_data_manager(
     batch_size=5,
 ):
 
-    print("* Data manager >> running...", flush=True)
+    print(f"* Data manager (PID: {os.getpid()})>> running...", flush=True)
     print(f"* Data manager >> network size: {len(users)}", flush=True)
 
     # Arch status object
@@ -66,13 +67,7 @@ def run_data_manager(
 
     while True:
 
-        if iprobe_with_timeout(
-            comm_world,
-            source=MPI.ANY_SOURCE,
-            tag=MPI.ANY_TAG,
-            status=status,
-            pname="DataMngr",
-        ):
+        if iprobe_with_timeout(comm_world=comm_world, status=status, pname="DataMngr"):
 
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
@@ -80,17 +75,21 @@ def run_data_manager(
             if alive and payload == "STOP":
                 print("* DataMngr >> stop signal detected", flush=True)
                 MPI.Request.waitall(isends)
-                isends.clear()
                 alive = False
 
             if alive:
 
                 # Wait for pending isends
-                if len(isends) > 100:
+                if len(isends) > 10:
                     MPI.Request.waitall(isends)
                     isends.clear()
 
                 if sender == "worker":
+
+                    print(
+                        f"* ({gettimestamp()}) DataMngr >> processed user received",
+                        flush=True,
+                    )
 
                     # LOGIC:
                     # Once a single worker process sends a processed user,
@@ -103,21 +102,23 @@ def run_data_manager(
 
                     for source in worker_ranks:
 
-                        # Unpack the agent + incoming messages and passive actions
-                        user, new_msgs, passive_actions = payload
+                        for data in payload:
 
-                        # Assign a timestamp
-                        for msg in new_msgs:
-                            msg.time = clock.next_time()  # type: ignore
+                            # Unpack the agent + incoming messages and passive actions
+                            user, new_msgs, passive_actions = data
 
-                        # Updating main structures
-                        outgoing_messages[user.uid].extend(new_msgs)  # type: ignore
-                        outgoing_passivities[user.uid].extend(passive_actions)  # type: ignore
+                            # Assign a timestamp
+                            for msg in new_msgs:
+                                msg.time = clock.next_time()  # type: ignore
 
-                        # Scan for incoming processed user from current source worker
-                        if comm_world.iprobe(source=source, status=status):
-                            # If new processed user available receive and update content
-                            _, payload = comm_world.recv(source=source, status=status)
+                            # Updating main structures
+                            outgoing_messages[user.uid].extend(new_msgs)  # type: ignore
+                            outgoing_passivities[user.uid].extend(passive_actions)  # type: ignore
+
+                            # Scan for incoming processed user from current source worker
+                            if comm_world.iprobe(source=source, status=status):
+                                # If new processed user available receive and update content
+                                _, data = comm_world.recv(source=source, status=status)
 
                 elif sender == "recsys" and payload == "dataReq":
 
@@ -157,6 +158,7 @@ def run_data_manager(
                         if len(selected_users) == len(users):
                             rnd.shuffle(users)
                             selected_users.clear()
+                            print("* Data manager >> user reset", flush=True)
 
                     isends.append(
                         comm_world.isend(

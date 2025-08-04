@@ -4,7 +4,8 @@ and post/repost messages that will be shown to their followers
 """
 
 from mpi4py import MPI
-from mpi_utils import iprobe_with_timeout
+from mpi_utils import iprobe_with_timeout, gettimestamp
+import os
 
 
 def run_agent(
@@ -14,7 +15,9 @@ def run_agent(
     rank_index: dict,
 ):
 
-    print(f"* Agent process @rank: {rank} >> running...", flush=True)
+    print(
+        f"* Agent process @rank: {rank} (PID: {os.getpid()}) >> running...", flush=True
+    )
 
     # Status of the processes
     status = MPI.Status()
@@ -24,6 +27,9 @@ def run_agent(
 
     # Process isends
     isends = []
+
+    dm_batch = []
+    pm_batch = []
 
     # Bootstrap sync
     comm_world.barrier()
@@ -35,7 +41,6 @@ def run_agent(
             source=MPI.ANY_SOURCE,
             tag=MPI.ANY_TAG,
             status=status,
-            timeout=5,
             pname=f"Worker_{rank}",
         ):
 
@@ -46,7 +51,6 @@ def run_agent(
             if alive and payload == "STOP":
                 print(f"* Worker_{rank} >> stop signal detected", flush=True)
                 MPI.Request.waitall(isends)
-                isends.clear()
                 alive = False
 
             if alive:
@@ -58,25 +62,60 @@ def run_agent(
                 processed_user_pack = (user, activities, passivities)
 
                 # Wait for pending isends
-                if len(isends) > 100:
+                if len(isends) > 0:
+                    print(
+                        f"* ({gettimestamp()}) Worker_{rank} >> waiting isends",
+                        flush=True,
+                    )
                     MPI.Request.waitall(isends)
                     isends.clear()
 
-                # Send the processed user first to the data manager
-                isends.append(
-                    comm_world.isend(
-                        ("worker", processed_user_pack),
-                        dest=rank_index["data_manager"],
-                    )
-                )
+                dm_batch.append(processed_user_pack)
+                pm_batch.append(user)
 
-                # Then send the processed user to the policy process
-                isends.append(
-                    comm_world.isend(
-                        ("worker", user),
-                        dest=rank_index["policy_filter"],
+                if len(dm_batch) >= 64:
+
+                    # Send the processed user first to the data manager
+                    print(
+                        f"* ({gettimestamp()}) Worker_{rank} >> sending to data_manager (rank {rank_index['data_manager']})",
+                        flush=True,
                     )
-                )
+                    # isends.append(
+                    #     comm_world.isend(
+                    #         ("worker", processed_user_pack),
+                    #         dest=rank_index["data_manager"],
+                    #     )
+                    # )
+
+                    isends.append(
+                        comm_world.isend(
+                            ("worker", dm_batch),
+                            dest=rank_index["data_manager"],
+                        )
+                    )
+
+                    print(
+                        f"* ({gettimestamp()}) Worker_{rank} >> sending to policy_filter (rank {rank_index['policy_filter']})",
+                        flush=True,
+                    )
+
+                    # # Then send the processed user to the policy process
+                    # isends.append(
+                    #     comm_world.isend(
+                    #         ("worker", user),
+                    #         dest=rank_index["policy_filter"],
+                    #     )
+                    # )
+
+                    isends.append(
+                        comm_world.isend(
+                            ("worker", pm_batch),
+                            dest=rank_index["policy_filter"],
+                        )
+                    )
+
+                    dm_batch.clear()
+                    pm_batch.clear()
 
         else:
 

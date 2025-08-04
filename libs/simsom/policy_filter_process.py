@@ -1,5 +1,6 @@
 from mpi4py import MPI
-from mpi_utils import iprobe_with_timeout, handle_crash
+from mpi_utils import iprobe_with_timeout, handle_crash, gettimestamp
+import os
 
 
 def run_policy_filter(
@@ -9,7 +10,7 @@ def run_policy_filter(
     rank_index: dict,
 ):
 
-    print("* Policy process >> running...", flush=True)
+    print(f"* Policy process (PID: {os.getpid()}) >> running...", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -23,6 +24,8 @@ def run_policy_filter(
     # Process isends
     isends = []
 
+    sender_track = []  # debug
+
     # Bootstrap sync
     comm_world.barrier()
 
@@ -34,6 +37,7 @@ def run_policy_filter(
             tag=MPI.ANY_TAG,
             status=status,
             pname="PolicyMngr",
+            timeout=20,
         ):
 
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
@@ -42,17 +46,21 @@ def run_policy_filter(
             if alive and payload == "STOP":
                 print("* PolicyMngr >> stop signal detected...", flush=True)
                 MPI.Request.waitall(isends)
-                isends.clear()
                 alive = False
 
             if alive:
+
+                print(
+                    f"* ({gettimestamp()}) PolicyMngr >> processed user received",
+                    flush=True,
+                )
 
                 _ = payload  # TO BE IMPLEMENTED
 
                 count += 1
 
                 # Wait for pending isends
-                if len(isends) > 100:
+                if len(isends) > 10:
                     MPI.Request.waitall(isends)
                     isends.clear()
 
@@ -78,7 +86,7 @@ def run_policy_filter(
                     status=status,
                     srank=rank,
                     srole="policy_filter",
-                    pname="PolicyMngr",
+                    pname="PolicyMngr (crashed)",
                 )
 
             print("* PolicyMngr >> entering barrier...", flush=True)
@@ -86,3 +94,4 @@ def run_policy_filter(
             break
 
     print("* PolicyMngr >> closed.", flush=True)
+    print(f"* PolicyMngr >> sender track {sender_track}", flush=True)

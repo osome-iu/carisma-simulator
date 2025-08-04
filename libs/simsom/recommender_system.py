@@ -1,6 +1,7 @@
 from mpi4py import MPI
 from collections import Counter
 from mpi_utils import iprobe_with_timeout, handle_crash
+import os
 
 
 def calculate_cosine_similarity(list_a: list, list_b: list) -> float:
@@ -118,7 +119,7 @@ def run_recommender_system(
     rank_index: dict,
 ):
 
-    print("* RecSys process >> running...", flush=True)
+    print(f"* RecSys process (PID: {os.getpid()}) >> running...", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -151,25 +152,25 @@ def run_recommender_system(
             if alive and payload == "STOP":
                 print("* RecSys >> stop signal detected...", flush=True)
                 MPI.Request.waitall(isends)
-                isends.clear()
                 alive = False
 
             if alive:
 
                 # Wait for pending isends
-                if len(isends) > 100:
+                if len(isends) > 10:
                     MPI.Request.waitall(isends)
                     isends.clear()
 
                 if sender == "agntPoolMngr" and payload == "dataReq":
 
                     # Requesting data from data manager
-                    isends.append(
-                        comm_world.isend(
-                            ("recsys", "dataReq"),
-                            dest=rank_index["data_manager"],
+                    for i in range(2):  # Firing multiple requests (experimental)
+                        isends.append(
+                            comm_world.isend(
+                                ("recsys", "dataReq"),
+                                dest=rank_index["data_manager"],
+                            )
                         )
-                    )
 
                 if sender == "dataMngr":
 

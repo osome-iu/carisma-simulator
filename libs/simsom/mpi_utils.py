@@ -6,16 +6,22 @@ from mpi4py import MPI
 
 # import random
 import time
+from datetime import datetime
+
+
+def gettimestamp():
+    now = datetime.now()
+    # return now.strftime("%Y-%m-%d %H:%M:%S")
+    return now.strftime("%H:%M:%S")
 
 
 def iprobe_with_timeout(
-    comm_world,
-    *,
+    comm_world: MPI.Intracomm,
     source=MPI.ANY_SOURCE,
     tag=MPI.ANY_TAG,
-    timeout=3.0,
-    check_interval=0.001,
     status=None,
+    timeout=5.0,
+    check_interval=0.001,
     pname="Proc",
 ):
     """
@@ -39,7 +45,7 @@ def iprobe_with_timeout(
             return True
         time.sleep(check_interval)
 
-    print(f"* {pname} >> timeout", flush=True)
+    print(f"* ({gettimestamp()}) {pname} >> timeout", flush=True)
 
     return False
 
@@ -59,7 +65,7 @@ def clean_termination(
     - sender_rank: int, rank of the process sending the termination signal
     - sender_role: str, identifier of the role of the sender (for logging)
     """
-    print(f"* {log_name} >> {message}", flush=True)
+    print(f"* ({gettimestamp()}) {log_name} >> {message}", flush=True)
 
     proc_ranks = list(range(comm_world.Get_size()))
 
@@ -73,9 +79,12 @@ def clean_termination(
         if rank != sender_rank:
             isends.append(comm_world.isend((sender_role, "STOP"), dest=rank))
             print(f"* {log_name} >> sent termination signal to: {rank}", flush=True)
-    print(f"* {log_name} >> waitin all sigterm signal delivered...", flush=True)
+    print(
+        f"* ({gettimestamp()}) {log_name} >> waitin all sigterm signal delivered...",
+        flush=True,
+    )
     MPI.Request.waitall(isends)
-    print(f"* {log_name} >> DELIVERED ALL SIGTERMS!", flush=True)
+    print(f"* ({gettimestamp()}) {log_name} >> DELIVERED ALL SIGTERMS!", flush=True)
 
 
 def handle_crash(comm_world, status, srank: int, srole: str, pname: str):

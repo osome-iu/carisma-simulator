@@ -11,6 +11,7 @@ from mpi4py import MPI
 import simtools
 import pandas as pd
 from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash
+import os
 
 # Path files
 time_now = int(time.time())
@@ -144,7 +145,7 @@ def run_analyzer(
         FILE_PATH (str): path to the file where the activities are saved
     """
 
-    print("* Analyzer process >> running...", flush=True)
+    print(f"* Analyzer process (PID: {os.getpid()}) >> running...", flush=True)
 
     status = MPI.Status()
 
@@ -206,6 +207,7 @@ def run_analyzer(
             tag=MPI.ANY_TAG,
             status=status,
             pname="Analyzer",
+            timeout=60,
         ):
 
             # Receive incoming data (from any process is sending)
