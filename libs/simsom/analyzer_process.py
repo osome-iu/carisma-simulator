@@ -207,15 +207,17 @@ def run_analyzer(
             tag=MPI.ANY_TAG,
             status=status,
             pname="Analyzer",
-            timeout=60,
+            timeout=30,
         ):
 
             # Receive incoming data (from any process is sending)
-            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            raw = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            # print(f"Raw message: {raw}")
+            sender, payload = raw
 
             _ = sender  # not used, temporary for readability
 
-            # Check if termination signal has been sent (crash)
+            # Check if termination signal has been sent
             if alive and payload == "STOP":
                 print("* Analyzer >> stop signal detected...", flush=True)
                 alive = False

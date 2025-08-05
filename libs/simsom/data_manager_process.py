@@ -39,8 +39,8 @@ def run_data_manager(
     batch_size=5,
 ):
 
-    print(f"* Data manager (PID: {os.getpid()})>> running...", flush=True)
-    print(f"* Data manager >> network size: {len(users)}", flush=True)
+    print(f"[{gettimestamp()}] DataMngr: running (PID: {os.getpid()})...", flush=True)
+    print(f"[{gettimestamp()}] DataMngr: network size: {len(users)}", flush=True)
 
     # Arch status object
     status = MPI.Status()
@@ -57,11 +57,6 @@ def run_data_manager(
 
     alive = True
 
-    isends = []
-
-    # Worker process ranks
-    worker_ranks = list(range(5, size))
-
     # Bootstrap sync
     comm_world.barrier()
 
@@ -73,56 +68,37 @@ def run_data_manager(
 
             # Check if termination signal has been sent
             if alive and payload == "STOP":
-                print("* DataMngr >> stop signal detected", flush=True)
-                MPI.Request.waitall(isends)
+                print(
+                    f"[{gettimestamp()}] DataMngr > stop signal detected!", flush=True
+                )
                 alive = False
 
             if alive:
 
-                # Wait for pending isends
-                if len(isends) > 10:
-                    MPI.Request.waitall(isends)
-                    isends.clear()
-
                 if sender == "worker":
 
-                    print(
-                        f"* ({gettimestamp()}) DataMngr >> processed user received",
-                        flush=True,
-                    )
+                    # print(
+                    #     f"[{gettimestamp()}] DataMngr > processed user batch received...",
+                    #     flush=True,
+                    # )
 
-                    # LOGIC:
-                    # Once a single worker process sends a processed user,
-                    # triggers a scan to possibly collect other processed users.
-                    # The scan look at all worker processes quickly.
-                    # If some users is not collected would be in the very next.
-                    # It's a way to give priority to worker processes.
+                    for processed_pack in payload:
 
-                    rnd.shuffle(worker_ranks)
+                        # Unpack the agent + incoming messages and passive actions
+                        user, new_msgs, passive_actions = processed_pack
 
-                    for source in worker_ranks:
+                        # Assign a timestamp
+                        for msg in new_msgs:
+                            msg.time = clock.next_time()  # type: ignore
 
-                        for data in payload:
+                        # Updating main structures
+                        outgoing_messages[user.uid].extend(new_msgs)  # type: ignore
+                        outgoing_passivities[user.uid].extend(passive_actions)  # type: ignore
+                        # NOTE: TODO: users[user.uid] = user # The user feed can change!
 
-                            # Unpack the agent + incoming messages and passive actions
-                            user, new_msgs, passive_actions = data
+                elif sender == "recommender_system":
 
-                            # Assign a timestamp
-                            for msg in new_msgs:
-                                msg.time = clock.next_time()  # type: ignore
-
-                            # Updating main structures
-                            outgoing_messages[user.uid].extend(new_msgs)  # type: ignore
-                            outgoing_passivities[user.uid].extend(passive_actions)  # type: ignore
-
-                            # Scan for incoming processed user from current source worker
-                            if comm_world.iprobe(source=source, status=status):
-                                # If new processed user available receive and update content
-                                _, data = comm_world.recv(source=source, status=status)
-
-                elif sender == "recsys" and payload == "dataReq":
-
-                    users_packs_batch = []
+                    users_pack_batch = []
 
                     # Since we risk to shuffle the users when we build the batch, we need to
                     # make sure we don't pick the same user twice
@@ -146,7 +122,7 @@ def run_data_manager(
                         passive_actions_send = outgoing_passivities[picked_user.uid]
 
                         # Add it to the batch
-                        users_packs_batch.append(
+                        users_pack_batch.append(
                             (picked_user, active_actions_send, passive_actions_send)
                         )
 
@@ -158,33 +134,35 @@ def run_data_manager(
                         if len(selected_users) == len(users):
                             rnd.shuffle(users)
                             selected_users.clear()
-                            print("* Data manager >> user reset", flush=True)
+                            # print(f"[{gettimestamp()}] DataMngr: user reset", flush=True)
 
-                    isends.append(
-                        comm_world.isend(
-                            ("dataMngr", users_packs_batch),
+                        comm_world.send(
+                            ("data_manager", users_pack_batch),
                             dest=rank_index["recommender_system"],
                         )
-                    )
 
-                elif sender == "policyMngr":
+                elif sender == "policy_evaluator":
 
-                    print("* Data manager >> data from policy", flush=True)
+                    # print(
+                    #     f"[{gettimestamp()}] DataMngr > data from policy evaluator",
+                    #     flush=True,
+                    # )
                     # Get the moderated user/content info and apply logic to data
                     continue
 
                 else:
 
-                    print("* Data manager >> unknown sender", flush=True)
+                    print(
+                        f"[{gettimestamp()}] DataMngr > unknown sender: {sender}",
+                        flush=True,
+                    )
                     raise ValueError
 
         else:
 
-            print(f"* DataMngr >> closing with {len(isends)} isends...", flush=True)
+            print(f"[{gettimestamp()}] DataMngr > closing...", flush=True)
 
             if alive:
-
-                MPI.Request.waitall(isends)
 
                 handle_crash(
                     comm_world=comm_world,
@@ -194,10 +172,10 @@ def run_data_manager(
                     pname="DataMngr",
                 )
 
-            print("* DataMngr >> entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] DataMngr > entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print("* DataMngr >> closed.", flush=True)
+    print(f"[{gettimestamp()}] DataMngr > closed.", flush=True)
 
-    print(f"* DataMngr >> final clock: {clock.current_time} ")
+    print(f"[{gettimestamp()}] DataMngr > final clock: {clock.current_time} ")

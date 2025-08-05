@@ -45,7 +45,7 @@ def iprobe_with_timeout(
             return True
         time.sleep(check_interval)
 
-    print(f"* ({gettimestamp()}) {pname} >> timeout", flush=True)
+    print(f"[{gettimestamp()}] {pname} >> timeout", flush=True)
 
     return False
 
@@ -65,7 +65,7 @@ def clean_termination(
     - sender_rank: int, rank of the process sending the termination signal
     - sender_role: str, identifier of the role of the sender (for logging)
     """
-    print(f"* ({gettimestamp()}) {log_name} >> {message}", flush=True)
+    print(f"[{gettimestamp()}] {log_name} > {message}", flush=True)
 
     proc_ranks = list(range(comm_world.Get_size()))
 
@@ -78,13 +78,16 @@ def clean_termination(
     for rank in proc_ranks:
         if rank != sender_rank:
             isends.append(comm_world.isend((sender_role, "STOP"), dest=rank))
-            print(f"* {log_name} >> sent termination signal to: {rank}", flush=True)
+            print(
+                f"[{gettimestamp()}] {log_name} > sent termination signal to: {rank}",
+                flush=True,
+            )
     print(
-        f"* ({gettimestamp()}) {log_name} >> waitin all sigterm signal delivered...",
+        f"[{gettimestamp()}] {log_name} > waitin all sigterm signal delivered...",
         flush=True,
     )
     MPI.Request.waitall(isends)
-    print(f"* ({gettimestamp()}) {log_name} >> DELIVERED ALL SIGTERMS!", flush=True)
+    print(f"[{gettimestamp()}] {log_name} > DELIVERED ALL SIGTERMS!", flush=True)
 
 
 def handle_crash(comm_world, status, srank: int, srole: str, pname: str):

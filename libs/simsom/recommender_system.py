@@ -1,6 +1,6 @@
 from mpi4py import MPI
 from collections import Counter
-from mpi_utils import iprobe_with_timeout, handle_crash
+from mpi_utils import iprobe_with_timeout, handle_crash, gettimestamp
 import os
 
 
@@ -119,60 +119,81 @@ def run_recommender_system(
     rank_index: dict,
 ):
 
-    print(f"* RecSys process (PID: {os.getpid()}) >> running...", flush=True)
+    print(f"[{gettimestamp()}] RecSys (PID: {os.getpid()}) > running...", flush=True)
 
     # Status of the processes
     status = MPI.Status()
 
-    global_inventory = []
+    global_inventory = []  # To be moved in policy evaluator
+
+    prefetch_buffer = []
+    data_requested = False
+    buffer_thr = 32
 
     # Process status
     alive = True
-
-    # Process isends
-    isends = []
 
     # Bootstrap sync
     comm_world.barrier()
 
     while True:
 
-        if iprobe_with_timeout(
-            comm_world,
-            source=MPI.ANY_SOURCE,
-            tag=MPI.ANY_TAG,
-            status=status,
-            pname="RecSys",
-        ):
+        if iprobe_with_timeout(comm_world, status=status, pname="RecSys"):
 
             # Wait for agent pool manager requesting data (or stop signal from analyzer)
-            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            pdata = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+
+            sender, payload = pdata
 
             # Check if termination signal has been sent
             if alive and payload == "STOP":
-                print("* RecSys >> stop signal detected...", flush=True)
-                MPI.Request.waitall(isends)
+
+                print(
+                    f"[{gettimestamp()}] RecSys > stop signal detected from {pdata[0]}!",
+                    flush=True,
+                )
+
                 alive = False
 
             if alive:
 
-                # Wait for pending isends
-                if len(isends) > 10:
-                    MPI.Request.waitall(isends)
-                    isends.clear()
+                if sender == "worker":
 
-                if sender == "agntPoolMngr" and payload == "dataReq":
+                    worker_rank = pdata[1]
 
-                    # Requesting data from data manager
-                    for i in range(2):  # Firing multiple requests (experimental)
-                        isends.append(
-                            comm_world.isend(
-                                ("recsys", "dataReq"),
+                    if len(prefetch_buffer) < buffer_thr:
+
+                        if len(prefetch_buffer) == 0:
+
+                            comm_world.send(
+                                ("recommender_system", "wait"),
+                                dest=worker_rank,
+                            )
+
+                        else:
+
+                            comm_world.send(
+                                ("recommender_system", prefetch_buffer.pop(0)),
+                                dest=worker_rank,
+                            )
+
+                        if not data_requested:
+
+                            comm_world.send(
+                                ("recommender_system", "dataReq"),
                                 dest=rank_index["data_manager"],
                             )
+
+                            data_requested = True
+
+                    else:
+
+                        comm_world.send(
+                            ("recommender_system", prefetch_buffer.pop(0)),
+                            dest=worker_rank,
                         )
 
-                if sender == "dataMngr":
+                if sender == "data_manager":
 
                     data = payload
 
@@ -198,7 +219,8 @@ def run_recommender_system(
                         # Build the newsfeed for the agent
                         user.newsfeed = build_feed(user, in_messages, out_messages)  # type: ignore
 
-                        # Collect the user and the actions so we can send them to the agent pool manager and analyzer
+                        # Collect the user and the actions
+                        # so we can send them to the analyzer
                         users.append(user)
                         passivities.extend(passive_actions)
                         activities.extend(active_actions)
@@ -207,27 +229,20 @@ def run_recommender_system(
                         # Remove the oldest 1000 messages so we don't run out of memory
                         global_inventory = global_inventory[-1000:]
 
-                    isends.append(
-                        comm_world.isend(
-                            ("recSys", (users, activities, passivities)),
-                            dest=rank_index["analyzer"],
-                        )
+                    comm_world.send(
+                        ("recommender_system", (users, activities, passivities)),
+                        dest=rank_index["analyzer"],
                     )
 
-                    isends.append(
-                        comm_world.isend(
-                            ("recSys", users),
-                            dest=rank_index["agent_pool_manager"],
-                        )
-                    )
+                    prefetch_buffer.extend(users)
+
+                    data_requested = False
 
         else:
 
-            print(f"* RecSys >> closing with {len(isends)} isends...", flush=True)
+            print(f"[{gettimestamp()}] RecSys > closing with isends...", flush=True)
 
             if alive:
-
-                MPI.Request.waitall(isends)
 
                 handle_crash(
                     comm_world=comm_world,
@@ -237,8 +252,8 @@ def run_recommender_system(
                     pname="RecSys",
                 )
 
-            print("* RecSys >> entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] RecSys > entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print("* RecSys >> closed.", flush=True)
+    print(f"[{gettimestamp()}] RecSys > closed.", flush=True)

@@ -29,7 +29,8 @@ import argparse
 from data_manager_process import run_data_manager
 from analyzer_process import run_analyzer
 from policy_filter_process import run_policy_filter
-from agent_pool_manager_process import run_agent_pool_manager
+
+# from agent_pool_manager_process import run_agent_pool_manager
 from agent_process import run_agent
 from recommender_system import run_recommender_system
 
@@ -39,9 +40,9 @@ RANK_INDEX = {
     "data_manager": 0,
     "recommender_system": 1,
     "analyzer": 2,
-    "agent_pool_manager": 3,
-    "policy_filter": 4,
-    "agent_handler": 5,
+    # "agent_pool_manager": 3,
+    "policy_evaluator": 3,
+    "worker": 4,
 }
 
 parser = argparse.ArgumentParser()
@@ -84,10 +85,10 @@ def main():
         )
     )
 
-    if size < 6:
+    if size < 5:
 
         if rank == 0:
-            print("Error: This program requires at least 6 processes")
+            print("Error: This program requires at least 5 processes")
         sys.exit(1)
 
     if rank == RANK_INDEX["data_manager"]:
@@ -101,7 +102,7 @@ def main():
             batch_size=simulator_config["data_manager_batchsize"],
         )
 
-    elif rank == RANK_INDEX["policy_filter"]:
+    elif rank == RANK_INDEX["policy_evaluator"]:
 
         run_policy_filter(
             comm_world=comm_world,
@@ -145,16 +146,16 @@ def main():
             save_passive_interactions=simulator_config["save_passive_interactions"],
         )
 
-    elif rank == RANK_INDEX["agent_pool_manager"]:
+    # elif rank == RANK_INDEX["agent_pool_manager"]:
 
-        run_agent_pool_manager(
-            comm_world=comm_world,
-            rank=rank,
-            size=size,
-            rank_index=RANK_INDEX,
-        )
+    #     run_agent_pool_manager(
+    #         comm_world=comm_world,
+    #         rank=rank,
+    #         size=size,
+    #         rank_index=RANK_INDEX,
+    #     )
 
-    elif rank >= RANK_INDEX["agent_handler"]:
+    elif rank >= RANK_INDEX["worker"]:
         run_agent(
             comm_world=comm_world,
             rank=rank,

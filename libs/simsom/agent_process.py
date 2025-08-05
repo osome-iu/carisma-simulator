@@ -16,7 +16,8 @@ def run_agent(
 ):
 
     print(
-        f"* Agent process @rank: {rank} (PID: {os.getpid()}) >> running...", flush=True
+        f"[{gettimestamp()}] Worker_{rank} (PID: {os.getpid()}) > running...",
+        flush=True,
     )
 
     # Status of the processes
@@ -25,113 +26,88 @@ def run_agent(
     # Process status
     alive = True
 
-    # Process isends
-    isends = []
-
-    dm_batch = []
-    pm_batch = []
+    out_batch = []
 
     # Bootstrap sync
     comm_world.barrier()
 
     while True:
 
-        if iprobe_with_timeout(
-            comm_world,
-            source=MPI.ANY_SOURCE,
-            tag=MPI.ANY_TAG,
-            status=status,
-            pname=f"Worker_{rank}",
-        ):
+        if alive:
 
-            # Receive package that contains (friend ids, messages) from agent_pool_manager
+            # print(f"[{gettimestamp()}] Worker_{rank} > requesting data...", flush=True)
+            comm_world.send(("worker", rank), dest=rank_index["recommender_system"])
+
+        if iprobe_with_timeout(comm_world, status=status, pname=f"Worker_{rank}"):
+
+            # print(f"[{gettimestamp()}] Worker_{rank} > receiving data...", flush=True)
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
+            # print(
+            #     f"[{gettimestamp()}] Worker_{rank} > received data from {sender}!",
+            #     flush=True,
+            # )
 
-            # Check if termination signal has been sent
+            # Check termination signal
             if alive and payload == "STOP":
-                print(f"* Worker_{rank} >> stop signal detected", flush=True)
-                MPI.Request.waitall(isends)
+
+                print(
+                    f"[{gettimestamp()}] Worker_{rank} > stop signal detected from {sender}!",
+                    flush=True,
+                )
+
                 alive = False
 
             if alive:
 
+                if payload == "wait":
+                    continue
+
                 user = payload  # Just for readability
                 activities, passivities = user.make_actions()  # type: ignore
 
-                # Repack the user (updated feed) and activities (messages he produced)
+                # Repack the data
                 processed_user_pack = (user, activities, passivities)
 
-                # Wait for pending isends
-                if len(isends) > 0:
-                    print(
-                        f"* ({gettimestamp()}) Worker_{rank} >> waiting isends",
-                        flush=True,
-                    )
-                    MPI.Request.waitall(isends)
-                    isends.clear()
+                out_batch.append(processed_user_pack)
 
-                dm_batch.append(processed_user_pack)
-                pm_batch.append(user)
+                if len(out_batch) >= 32:
 
-                if len(dm_batch) >= 64:
-
-                    # Send the processed user first to the data manager
-                    print(
-                        f"* ({gettimestamp()}) Worker_{rank} >> sending to data_manager (rank {rank_index['data_manager']})",
-                        flush=True,
-                    )
-                    # isends.append(
-                    #     comm_world.isend(
-                    #         ("worker", processed_user_pack),
-                    #         dest=rank_index["data_manager"],
-                    #     )
+                    # print(
+                    #     f"[{gettimestamp()}] Worker_{rank} > sending to data_manager...",
+                    #     flush=True,
                     # )
 
-                    isends.append(
-                        comm_world.isend(
-                            ("worker", dm_batch),
-                            dest=rank_index["data_manager"],
-                        )
+                    comm_world.send(
+                        ("worker", out_batch),
+                        dest=rank_index["data_manager"],
                     )
 
-                    print(
-                        f"* ({gettimestamp()}) Worker_{rank} >> sending to policy_filter (rank {rank_index['policy_filter']})",
-                        flush=True,
-                    )
-
-                    # # Then send the processed user to the policy process
-                    # isends.append(
-                    #     comm_world.isend(
-                    #         ("worker", user),
-                    #         dest=rank_index["policy_filter"],
-                    #     )
+                    # print(
+                    #     f"[{gettimestamp()}] Worker_{rank}> sending to policy_evaluator...",
+                    #     flush=True,
                     # )
 
-                    isends.append(
-                        comm_world.isend(
-                            ("worker", pm_batch),
-                            dest=rank_index["policy_filter"],
-                        )
+                    comm_world.send(
+                        ("worker", out_batch),
+                        dest=rank_index["policy_evaluator"],
                     )
 
-                    dm_batch.clear()
-                    pm_batch.clear()
+                    out_batch.clear()
 
         else:
 
             print(
-                f"* Worker_{rank} >> closing with {len(isends)} isends...",
+                f"[{gettimestamp()}] Worker_{rank} > closing...",
                 flush=True,
             )
 
             if alive:
 
-                print(f"* Worker_{rank} >> crashing...", flush=True)
-                MPI.Request.waitall(isends)
+                print(f"[{gettimestamp()}] Worker_{rank} > crashing...", flush=True)
                 # TODO: handle crash
 
-            print(f"* Worker_{rank} >> entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] Worker_{rank} > entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print(f"* Worker_{rank} >> closed.", flush=True)
+    print(f"[{gettimestamp()}] Worker_{rank} > closed.", flush=True)

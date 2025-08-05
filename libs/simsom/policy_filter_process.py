@@ -10,7 +10,9 @@ def run_policy_filter(
     rank_index: dict,
 ):
 
-    print(f"* Policy process (PID: {os.getpid()}) >> running...", flush=True)
+    print(
+        f"[{gettimestamp()}] PolicyEval (PID: {os.getpid()}) >> running...", flush=True
+    )
 
     # Status of the processes
     status = MPI.Status()
@@ -20,9 +22,6 @@ def run_policy_filter(
 
     # Process status
     alive = True
-
-    # Process isends
-    isends = []
 
     sender_track = []  # debug
 
@@ -37,61 +36,55 @@ def run_policy_filter(
             tag=MPI.ANY_TAG,
             status=status,
             pname="PolicyMngr",
-            timeout=20,
+            timeout=30,
         ):
 
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
             # Check if termination signal has been sent
             if alive and payload == "STOP":
-                print("* PolicyMngr >> stop signal detected...", flush=True)
-                MPI.Request.waitall(isends)
+                print(
+                    f"[{gettimestamp()}] PolicyEval > stop signal detected...",
+                    flush=True,
+                )
+
                 alive = False
 
             if alive:
 
-                print(
-                    f"* ({gettimestamp()}) PolicyMngr >> processed user received",
-                    flush=True,
-                )
+                # print(
+                #     f"[{gettimestamp()}] PolicyEval > processed user received from {sender}!",
+                #     flush=True,
+                # )
 
                 _ = payload  # TO BE IMPLEMENTED
 
                 count += 1
 
-                # Wait for pending isends
-                if len(isends) > 10:
-                    MPI.Request.waitall(isends)
-                    isends.clear()
-
                 if count == 10:
 
-                    isends.append(
-                        comm_world.isend(
-                            ("policyMngr", None),
-                            dest=rank_index["data_manager"],
-                        )
+                    comm_world.send(
+                        ("policy_evaluator", None),
+                        dest=rank_index["data_manager"],
                     )
 
         else:
 
-            print(f"* PolicyMngr >> closing with {len(isends)} isends...", flush=True)
+            print(f"[{gettimestamp()}] PolicyEval > closing...", flush=True)
 
             if alive:
-
-                MPI.Request.waitall(isends)
 
                 handle_crash(
                     comm_world=comm_world,
                     status=status,
                     srank=rank,
-                    srole="policy_filter",
+                    srole="policy_evaluator",
                     pname="PolicyMngr (crashed)",
                 )
 
-            print("* PolicyMngr >> entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] PolicyEval > entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print("* PolicyMngr >> closed.", flush=True)
-    print(f"* PolicyMngr >> sender track {sender_track}", flush=True)
+    print(f"[{gettimestamp()}] PolicyEval > closed.", flush=True)
+    print(f"[{gettimestamp()}] PolicyEval > sender track {sender_track}", flush=True)
