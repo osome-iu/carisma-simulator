@@ -99,7 +99,9 @@ def run_data_manager(
                         # Updating main structures
                         outgoing_messages[user.uid].extend(new_msgs)  # type: ignore
                         outgoing_passivities[user.uid].extend(passive_actions)  # type: ignore
-                        # NOTE: TODO: users[user.uid] = user # The user feed can change!
+
+                        # Updating user object
+                        users_dict[user.uid] = user  # type: ignore
 
                 elif sender == "recommender_system":
 
