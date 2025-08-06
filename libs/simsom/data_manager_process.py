@@ -39,8 +39,8 @@ def run_data_manager(
     batch_size=5,
 ):
 
-    print(f"[{gettimestamp()}] DataMngr: running (PID: {os.getpid()})...", flush=True)
-    print(f"[{gettimestamp()}] DataMngr: network size: {len(users)}", flush=True)
+    print(f"[{gettimestamp()}] DataMngr (PID: {os.getpid()}) > running...", flush=True)
+    print(f"[{gettimestamp()}] DataMngr > network size: {len(users)}", flush=True)
 
     # Arch status object
     status = MPI.Status()
@@ -103,6 +103,12 @@ def run_data_manager(
                     # Since we risk to shuffle the users when we build the batch, we need to
                     # make sure we don't pick the same user twice
                     batch_size = min(batch_size, len(users) - len(selected_users))
+                    # print(f"[{gettimestamp()}] DataMngr > {len(users)}", flush=True)
+                    # print(
+                    #     f"[{gettimestamp()}] DataMngr > {len(selected_users)}",
+                    #     flush=True,
+                    # )
+                    # print(f"[{gettimestamp()}] DataMngr > {batch_size}", flush=True)
 
                     # Build the batch
                     for _ in range(batch_size):
@@ -136,10 +142,13 @@ def run_data_manager(
                             selected_users.clear()
                             # print(f"[{gettimestamp()}] DataMngr: user reset", flush=True)
 
-                        comm_world.send(
-                            ("data_manager", users_pack_batch),
-                            dest=rank_index["recommender_system"],
-                        )
+                    if len(users_pack_batch) == 1:
+                        raise ValueError("A'fregna che te ceca!")
+
+                    comm_world.send(
+                        ("data_manager", users_pack_batch),
+                        dest=rank_index["recommender_system"],
+                    )
 
                 elif sender == "policy_evaluator":
 

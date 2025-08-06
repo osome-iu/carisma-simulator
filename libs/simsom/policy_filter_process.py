@@ -30,14 +30,7 @@ def run_policy_filter(
 
     while True:
 
-        if iprobe_with_timeout(
-            comm_world,
-            source=MPI.ANY_SOURCE,
-            tag=MPI.ANY_TAG,
-            status=status,
-            pname="PolicyMngr",
-            timeout=30,
-        ):
+        if iprobe_with_timeout(comm_world, status=status, pname="PolicyMngr"):
 
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 

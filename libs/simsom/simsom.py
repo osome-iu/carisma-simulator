@@ -40,7 +40,6 @@ RANK_INDEX = {
     "data_manager": 0,
     "recommender_system": 1,
     "analyzer": 2,
-    # "agent_pool_manager": 3,
     "policy_evaluator": 3,
     "worker": 4,
 }

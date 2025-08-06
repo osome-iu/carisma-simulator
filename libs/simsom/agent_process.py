@@ -5,6 +5,7 @@ and post/repost messages that will be shown to their followers
 
 from mpi4py import MPI
 from mpi_utils import iprobe_with_timeout, gettimestamp
+import time
 import os
 
 
@@ -59,8 +60,9 @@ def run_agent(
 
             if alive:
 
-                if payload == "wait":
-                    continue
+                # if payload == "wait":
+                #     time.sleep(1)
+                #     continue
 
                 user = payload  # Just for readability
                 activities, passivities = user.make_actions()  # type: ignore

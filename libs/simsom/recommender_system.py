@@ -126,9 +126,13 @@ def run_recommender_system(
 
     global_inventory = []  # To be moved in policy evaluator
 
+    # Prefetch buffer
     prefetch_buffer = []
     data_requested = False
-    buffer_thr = 32
+    buffer_thr = 128
+
+    # Avoid busy waiting
+    waiting_workers = []
 
     # Process status
     alive = True
@@ -165,10 +169,12 @@ def run_recommender_system(
 
                         if len(prefetch_buffer) == 0:
 
-                            comm_world.send(
-                                ("recommender_system", "wait"),
-                                dest=worker_rank,
-                            )
+                            # comm_world.send(
+                            #     ("recommender_system", "wait"),
+                            #     dest=worker_rank,
+                            # )
+
+                            waiting_workers.append(worker_rank)
 
                         else:
 
@@ -235,6 +241,19 @@ def run_recommender_system(
                     )
 
                     prefetch_buffer.extend(users)
+
+                    # print(
+                    #     f"[{gettimestamp()}] RecSys > prefetch size {len(prefetch_buffer)}...",
+                    #     flush=True,
+                    # )
+
+                    # Handle waiting workers
+                    for worker_rank in waiting_workers:
+                        comm_world.send(
+                            ("recommender_system", prefetch_buffer.pop(0)),
+                            dest=worker_rank,
+                        )
+                    waiting_workers.clear()
 
                     data_requested = False
 

@@ -10,7 +10,7 @@ from collections import Counter
 from mpi4py import MPI
 import simtools
 import pandas as pd
-from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash
+from mpi_utils import iprobe_with_timeout, clean_termination, handle_crash, gettimestamp
 import os
 
 # Path files
@@ -145,7 +145,7 @@ def run_analyzer(
         FILE_PATH (str): path to the file where the activities are saved
     """
 
-    print(f"* Analyzer process (PID: {os.getpid()}) >> running...", flush=True)
+    print(f"[{gettimestamp()}] Analyzer (PID: {os.getpid()}) > running...", flush=True)
 
     status = MPI.Status()
 
@@ -189,7 +189,7 @@ def run_analyzer(
     else:
         exec_name = "Exponential moving average"
 
-    print(f"* Analyzer >> Execution with {exec_name}")
+    print(f"[{gettimestamp()}] Analyzer > Execution with {exec_name}")
 
     # Initialize files
     simtools.init_files(folder_path, file_path_activity, file_path_passivity)
@@ -201,25 +201,18 @@ def run_analyzer(
 
     while True:
 
-        if iprobe_with_timeout(
-            comm_world,
-            source=MPI.ANY_SOURCE,
-            tag=MPI.ANY_TAG,
-            status=status,
-            pname="Analyzer",
-            timeout=30,
-        ):
+        if iprobe_with_timeout(comm_world, status=status, pname="Analyzer"):
 
             # Receive incoming data (from any process is sending)
-            raw = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
-            # print(f"Raw message: {raw}")
-            sender, payload = raw
+            sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
             _ = sender  # not used, temporary for readability
 
             # Check if termination signal has been sent
             if alive and payload == "STOP":
-                print("* Analyzer >> stop signal detected...", flush=True)
+                print(
+                    f"[{gettimestamp()}] Analyzer > stop signal detected...", flush=True
+                )
                 alive = False
 
             if alive:
@@ -254,7 +247,6 @@ def run_analyzer(
                             csv_out_act.writerow(m.write_action())  # type: ignore
                 finally:
                     if out_act:
-                        # TO FIX: out_act possibly not bound
                         out_act.close()
 
                 # Write the passive interactions (view)
@@ -269,7 +261,8 @@ def run_analyzer(
                 if verbose:
                     if message_count != 0 and intermediate_n_user % print_interval == 0:
                         print(
-                            f"* Analyzer >> Intermediate stats after {intermediate_n_user} users: interval quality --> {round(interval_quality / message_count, 2)}",
+                            f"[{gettimestamp()}] Analyzer > Intermediate stats after {intermediate_n_user} | ",
+                            f"users: interval quality --> {round(interval_quality / message_count, 2)}",
                             flush=True,
                         )
                         message_count = 0
@@ -281,6 +274,15 @@ def run_analyzer(
                     # Stop and terminate the process
                     if n_data >= max_iteration_target:
 
+                        # Resize the output file to the number of messages
+                        resize_output(max_iteration_target)
+
+                        print(
+                            f"[{gettimestamp()}] Analyzer > Average quality:",
+                            round(quality_sum / n_data, 2),
+                            flush=True,
+                        )
+
                         # clean_termination_v2(rank_index=rank_index)
                         clean_termination(
                             comm_world=comm_world,
@@ -288,15 +290,6 @@ def run_analyzer(
                             sender_role="analyzer",
                             log_name="Analyzer",
                             message="GOAL REACHED, TERMINATING SIMULATION...",
-                        )
-
-                        # Resize the output file to the number of messages
-                        resize_output(max_iteration_target)
-
-                        print(
-                            "* Analyzer >> Average quality:",
-                            round(quality_sum / n_data, 2),
-                            flush=True,
                         )
 
                         alive = False
@@ -321,6 +314,21 @@ def run_analyzer(
                                 abs(current_quality - previous_quality)
                                 <= sliding_window_threshold
                             ):
+
+                                # Resize the output file to the number of messages
+                                # resize_output(n_data)
+                                print(
+                                    f"[{gettimestamp()}] Analyzer > Threshold reached:",
+                                    abs(current_quality - previous_quality),
+                                    flush=True,
+                                )
+
+                                print(
+                                    f"[{gettimestamp()}] Analyzer > Average quality:",
+                                    round(quality_sum / n_data, 2),
+                                    flush=True,
+                                )
+
                                 # clean_termination_v2(rank_index=rank_index)
                                 clean_termination(
                                     comm_world=comm_world,
@@ -328,19 +336,6 @@ def run_analyzer(
                                     sender_role="analyzer",
                                     log_name="Analyzer",
                                     message="GOAL REACHED, TERMINATING SIMULATION...",
-                                )
-                                # Resize the output file to the number of messages
-                                # resize_output(n_data)
-                                print(
-                                    "* Analyzer >> Threshold reached:",
-                                    abs(current_quality - previous_quality),
-                                    flush=True,
-                                )
-
-                                print(
-                                    "* Analyzer >> Average quality:",
-                                    round(quality_sum / n_data, 2),
-                                    flush=True,
                                 )
 
                                 alive = False
@@ -364,26 +359,33 @@ def run_analyzer(
                             # temp solution. At first stages n_data is 0.
 
                             print(
-                                f"* Analyzer >> current quality {current_quality}",
+                                f"[{gettimestamp()}] Analyzer > current quality {current_quality}",
                                 flush=True,
                             )
+
                             print(
-                                f"* Analyzer >> quality sum {quality_sum}", flush=True
-                            )
-                            print(f"* Analyzer >> ndata {n_data}", flush=True)
-                            print(
-                                f"* Analyzer >> avg quality {quality_sum/n_data}",
+                                f"[{gettimestamp()}] Analyzer > ndata {n_data}",
                                 flush=True,
                             )
+
+                            print(
+                                f"[{gettimestamp()}] Analyzer > avg quality {quality_sum/n_data}",
+                                flush=True,
+                            )
+
                             quality_diff, new_quality = update_quality(
                                 current_quality=current_quality,
                                 overall_avg_quality=quality_sum / n_data,
                             )
+
                             print(
-                                f"* Analyzer >> quality diff {quality_diff}", flush=True
+                                f"[{gettimestamp()}] Analyzer > quality diff {quality_diff}",
+                                flush=True,
                             )
+
                             print(
-                                f"* Analyzer >> new quality {new_quality}", flush=True
+                                f"[{gettimestamp()}] Analyzer > new quality {new_quality}",
+                                flush=True,
                             )
 
                             current_quality = new_quality
@@ -391,7 +393,13 @@ def run_analyzer(
                             if quality_diff <= ema_quality_convergence:
 
                                 print(
-                                    f"* Analyzer >> quality_diff {quality_diff} <= threshold {ema_quality_convergence}",
+                                    f"[{gettimestamp()}] Analyzer > quality_diff {quality_diff} <= threshold {ema_quality_convergence}",
+                                    flush=True,
+                                )
+
+                                print(
+                                    f"[{gettimestamp()}] Analyzer > Average quality:",
+                                    round(quality_sum / n_data, 2),
                                     flush=True,
                                 )
 
@@ -404,21 +412,15 @@ def run_analyzer(
                                     message="GOAL REACHED, TERMINATING SIMULATION...",
                                 )
 
+                                alive = False
+
                                 # Resize the output file to the number of messages
                                 # resize_output(max_iteration_target)
-
-                                print(
-                                    "* Analyzer >> Average quality:",
-                                    round(quality_sum / n_data, 2),
-                                    flush=True,
-                                )
-
-                                alive = False
 
                             else:
 
                                 print(
-                                    f"* Analyzer >> Quality diff after {n_data} messages: {quality_diff}"
+                                    f"[{gettimestamp()}] Analyzer > Quality diff after {n_data} messages: {quality_diff}"
                                 )
 
         else:
@@ -433,8 +435,8 @@ def run_analyzer(
                     pname="Analyzer",
                 )
 
-            print("* Analyzer >> entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] Analyzer > entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print("* Analyzer >> closed.", flush=True)
+    print(f"[{gettimestamp()}] Analyzer > closed.", flush=True)
