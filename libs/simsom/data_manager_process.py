@@ -49,6 +49,11 @@ def run_data_manager(
     outgoing_messages = {user.uid: [] for user in users}
     outgoing_passivities = {user.uid: [] for user in users}
 
+    # Build an index of users
+    users_dict = {}
+    for u in users:
+        users_dict[u.uid] = u
+
     # Clock
     clock = ClockManager()
 
@@ -113,7 +118,7 @@ def run_data_manager(
                     # Build the batch
                     for _ in range(batch_size):
                         # Always pick the first user (round-robin style)
-                        picked_user = users[0]
+                        picked_user = users_dict[users[0].uid]
 
                         # Track selected user
                         selected_users.add(picked_user.uid)
