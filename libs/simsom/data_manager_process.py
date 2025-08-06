@@ -142,9 +142,6 @@ def run_data_manager(
                             selected_users.clear()
                             # print(f"[{gettimestamp()}] DataMngr: user reset", flush=True)
 
-                    if len(users_pack_batch) == 1:
-                        raise ValueError("A'fregna che te ceca!")
-
                     comm_world.send(
                         ("data_manager", users_pack_batch),
                         dest=rank_index["recommender_system"],

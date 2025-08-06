@@ -5,7 +5,6 @@ and post/repost messages that will be shown to their followers
 
 from mpi4py import MPI
 from mpi_utils import iprobe_with_timeout, gettimestamp
-import time
 import os
 
 
