@@ -16,7 +16,7 @@ def run_agent(
 ):
 
     print(
-        f"[{gettimestamp()}] Worker_{rank} (PID: {os.getpid()}) > running...",
+        f"[{gettimestamp()}] Worker_{rank} (PID: {os.getpid()}) >> running...",
         flush=True,
     )
 
@@ -51,7 +51,7 @@ def run_agent(
             if alive and payload == "STOP":
 
                 print(
-                    f"[{gettimestamp()}] Worker_{rank} > stop signal detected from {sender}!",
+                    f"[{gettimestamp()}] Worker_{rank} >> stop signal detected from {sender}!",
                     flush=True,
                 )
 
@@ -98,17 +98,19 @@ def run_agent(
         else:
 
             print(
-                f"[{gettimestamp()}] Worker_{rank} > closing...",
+                f"[{gettimestamp()}] Worker_{rank} >> closing...",
                 flush=True,
             )
 
             if alive:
 
-                print(f"[{gettimestamp()}] Worker_{rank} > crashing...", flush=True)
+                print(f"[{gettimestamp()}] Worker_{rank} >> crashing...", flush=True)
                 # TODO: handle crash
 
-            print(f"[{gettimestamp()}] Worker_{rank} > entering barrier...", flush=True)
+            print(
+                f"[{gettimestamp()}] Worker_{rank} >> entering barrier...", flush=True
+            )
             comm_world.barrier()
             break
 
-    print(f"[{gettimestamp()}] Worker_{rank} > closed.", flush=True)
+    print(f"[{gettimestamp()}] Worker_{rank} >> closed.", flush=True)

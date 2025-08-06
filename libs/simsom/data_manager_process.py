@@ -39,8 +39,8 @@ def run_data_manager(
     batch_size=5,
 ):
 
-    print(f"[{gettimestamp()}] DataMngr (PID: {os.getpid()}) > running...", flush=True)
-    print(f"[{gettimestamp()}] DataMngr > network size: {len(users)}", flush=True)
+    print(f"[{gettimestamp()}] DataMngr (PID: {os.getpid()}) >> running...", flush=True)
+    print(f"[{gettimestamp()}] DataMngr >> network size: {len(users)}", flush=True)
 
     # Arch status object
     status = MPI.Status()
@@ -74,7 +74,7 @@ def run_data_manager(
             # Check if termination signal has been sent
             if alive and payload == "STOP":
                 print(
-                    f"[{gettimestamp()}] DataMngr > stop signal detected!", flush=True
+                    f"[{gettimestamp()}] DataMngr >> stop signal detected!", flush=True
                 )
                 alive = False
 
@@ -164,14 +164,14 @@ def run_data_manager(
                 else:
 
                     print(
-                        f"[{gettimestamp()}] DataMngr > unknown sender: {sender}",
+                        f"[{gettimestamp()}] DataMngr >> unknown sender: {sender}",
                         flush=True,
                     )
                     raise ValueError
 
         else:
 
-            print(f"[{gettimestamp()}] DataMngr > closing...", flush=True)
+            print(f"[{gettimestamp()}] DataMngr >> closing...", flush=True)
 
             if alive:
 
@@ -183,10 +183,10 @@ def run_data_manager(
                     pname="DataMngr",
                 )
 
-            print(f"[{gettimestamp()}] DataMngr > entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] DataMngr >> entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print(f"[{gettimestamp()}] DataMngr > closed.", flush=True)
+    print(f"[{gettimestamp()}] DataMngr >> closed.", flush=True)
 
-    print(f"[{gettimestamp()}] DataMngr > final clock: {clock.current_time} ")
+    print(f"[{gettimestamp()}] DataMngr >> final clock: {clock.current_time} ")

@@ -12,7 +12,7 @@ from datetime import datetime
 def gettimestamp():
     now = datetime.now()
     # return now.strftime("%Y-%m-%d %H:%M:%S")
-    return now.strftime("%H:%M:%S")
+    return now.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 
 def iprobe_with_timeout(
@@ -79,15 +79,15 @@ def clean_termination(
         if rank != sender_rank:
             isends.append(comm_world.isend((sender_role, "STOP"), dest=rank))
             print(
-                f"[{gettimestamp()}] {log_name} > sent termination signal to: {rank}",
+                f"[{gettimestamp()}] {log_name} >> sent termination signal to: {rank}",
                 flush=True,
             )
     print(
-        f"[{gettimestamp()}] {log_name} > waitin all sigterm signal delivered...",
+        f"[{gettimestamp()}] {log_name} >> waitin all sigterm signal delivered...",
         flush=True,
     )
     MPI.Request.waitall(isends)
-    print(f"[{gettimestamp()}] {log_name} > DELIVERED ALL SIGTERMS!", flush=True)
+    print(f"[{gettimestamp()}] {log_name} >> DELIVERED ALL SIGTERMS!", flush=True)
 
 
 def handle_crash(comm_world, status, srank: int, srole: str, pname: str):

@@ -23,8 +23,6 @@ def run_policy_filter(
     # Process status
     alive = True
 
-    sender_track = []  # debug
-
     # Bootstrap sync
     comm_world.barrier()
 
@@ -37,7 +35,7 @@ def run_policy_filter(
             # Check if termination signal has been sent
             if alive and payload == "STOP":
                 print(
-                    f"[{gettimestamp()}] PolicyEval > stop signal detected...",
+                    f"[{gettimestamp()}] PolicyEval >> stop signal detected...",
                     flush=True,
                 )
 
@@ -63,7 +61,7 @@ def run_policy_filter(
 
         else:
 
-            print(f"[{gettimestamp()}] PolicyEval > closing...", flush=True)
+            print(f"[{gettimestamp()}] PolicyEval >> closing...", flush=True)
 
             if alive:
 
@@ -75,9 +73,8 @@ def run_policy_filter(
                     pname="PolicyMngr (crashed)",
                 )
 
-            print(f"[{gettimestamp()}] PolicyEval > entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] PolicyEval >> entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print(f"[{gettimestamp()}] PolicyEval > closed.", flush=True)
-    print(f"[{gettimestamp()}] PolicyEval > sender track {sender_track}", flush=True)
+    print(f"[{gettimestamp()}] PolicyEval >> closed.", flush=True)

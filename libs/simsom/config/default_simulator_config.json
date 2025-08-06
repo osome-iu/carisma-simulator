@@ -1,5 +1,5 @@
 {
-    "data_manager_batchsize": 32,
+    "data_manager_batchsize": 64,
     "sliding_window_method": false,
     "sliding_window_size": 1000,
     "sliding_window_threshold": 0.0001,

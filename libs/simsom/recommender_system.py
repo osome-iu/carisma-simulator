@@ -119,7 +119,7 @@ def run_recommender_system(
     rank_index: dict,
 ):
 
-    print(f"[{gettimestamp()}] RecSys (PID: {os.getpid()}) > running...", flush=True)
+    print(f"[{gettimestamp()}] RecSys (PID: {os.getpid()}) >> running...", flush=True)
 
     # Status of the processes
     status = MPI.Status()
@@ -127,9 +127,9 @@ def run_recommender_system(
     global_inventory = []  # To be moved in policy evaluator
 
     # Prefetch buffer
-    prefetch_buffer = []
+    comm_buffer = []
     data_requested = False
-    buffer_thr = 128
+    buffer_thr = 256  # below this thr request data
 
     # Avoid busy waiting
     waiting_workers = []
@@ -153,7 +153,7 @@ def run_recommender_system(
             if alive and payload == "STOP":
 
                 print(
-                    f"[{gettimestamp()}] RecSys > stop signal detected from {pdata[0]}!",
+                    f"[{gettimestamp()}] RecSys >> stop signal detected from {pdata[0]}!",
                     flush=True,
                 )
 
@@ -165,21 +165,16 @@ def run_recommender_system(
 
                     worker_rank = pdata[1]
 
-                    if len(prefetch_buffer) < buffer_thr:
+                    if len(comm_buffer) < buffer_thr:
 
-                        if len(prefetch_buffer) == 0:
-
-                            # comm_world.send(
-                            #     ("recommender_system", "wait"),
-                            #     dest=worker_rank,
-                            # )
+                        if len(comm_buffer) == 0:
 
                             waiting_workers.append(worker_rank)
 
                         else:
 
                             comm_world.send(
-                                ("recommender_system", prefetch_buffer.pop(0)),
+                                ("recommender_system", comm_buffer.pop(0)),
                                 dest=worker_rank,
                             )
 
@@ -195,7 +190,7 @@ def run_recommender_system(
                     else:
 
                         comm_world.send(
-                            ("recommender_system", prefetch_buffer.pop(0)),
+                            ("recommender_system", comm_buffer.pop(0)),
                             dest=worker_rank,
                         )
 
@@ -240,7 +235,7 @@ def run_recommender_system(
                         dest=rank_index["analyzer"],
                     )
 
-                    prefetch_buffer.extend(users)
+                    comm_buffer.extend(users)
 
                     # print(
                     #     f"[{gettimestamp()}] RecSys > prefetch size {len(prefetch_buffer)}...",
@@ -250,7 +245,7 @@ def run_recommender_system(
                     # Handle waiting workers
                     for worker_rank in waiting_workers:
                         comm_world.send(
-                            ("recommender_system", prefetch_buffer.pop(0)),
+                            ("recommender_system", comm_buffer.pop(0)),
                             dest=worker_rank,
                         )
                     waiting_workers.clear()
@@ -259,7 +254,7 @@ def run_recommender_system(
 
         else:
 
-            print(f"[{gettimestamp()}] RecSys > closing with isends...", flush=True)
+            print(f"[{gettimestamp()}] RecSys >> closing with isends...", flush=True)
 
             if alive:
 
@@ -271,8 +266,8 @@ def run_recommender_system(
                     pname="RecSys",
                 )
 
-            print(f"[{gettimestamp()}] RecSys > entering barrier...", flush=True)
+            print(f"[{gettimestamp()}] RecSys >> entering barrier...", flush=True)
             comm_world.barrier()
             break
 
-    print(f"[{gettimestamp()}] RecSys > closed.", flush=True)
+    print(f"[{gettimestamp()}] RecSys >> closed.", flush=True)
