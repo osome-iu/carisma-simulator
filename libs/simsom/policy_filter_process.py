@@ -49,6 +49,7 @@ def run_policy_filter(
                 # )
 
                 _ = payload  # TO BE IMPLEMENTED
+                # payload is a batch of users: [(user1 (obj), activities (list), passivities (list)), (...), ...]
 
                 count += 1
 

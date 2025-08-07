@@ -49,7 +49,7 @@ def run_data_manager(
     outgoing_messages = {user.uid: [] for user in users}
     outgoing_passivities = {user.uid: [] for user in users}
 
-    # Build an index of users
+    # User objects main structure
     users_dict = {}
     for u in users:
         users_dict[u.uid] = u
@@ -87,10 +87,10 @@ def run_data_manager(
                     #     flush=True,
                     # )
 
-                    for processed_pack in payload:
+                    for processed_user_pack in payload:
 
                         # Unpack the agent + incoming messages and passive actions
-                        user, new_msgs, passive_actions = processed_pack
+                        user, new_msgs, passive_actions = processed_user_pack
 
                         # Assign a timestamp
                         for msg in new_msgs:

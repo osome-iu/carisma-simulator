@@ -20,7 +20,7 @@ def iprobe_with_timeout(
     source=MPI.ANY_SOURCE,
     tag=MPI.ANY_TAG,
     status=None,
-    timeout=5.0,
+    timeout=10.0,
     check_interval=0.001,
     pname="Proc",
 ):
@@ -82,12 +82,10 @@ def clean_termination(
                 f"[{gettimestamp()}] {log_name} >> sent termination signal to: {rank}",
                 flush=True,
             )
-    print(
-        f"[{gettimestamp()}] {log_name} >> waitin all sigterm signal delivered...",
-        flush=True,
-    )
+
     MPI.Request.waitall(isends)
-    print(f"[{gettimestamp()}] {log_name} >> DELIVERED ALL SIGTERMS!", flush=True)
+
+    print(f"[{gettimestamp()}] {log_name} >> sent all termination signals!", flush=True)
 
 
 def handle_crash(comm_world, status, srank: int, srole: str, pname: str):

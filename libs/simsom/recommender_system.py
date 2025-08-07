@@ -129,7 +129,8 @@ def run_recommender_system(
     # Prefetch buffer
     comm_buffer = []
     data_requested = False
-    buffer_thr = 256  # below this thr request data
+    n_workers = size - rank_index["worker"]
+    buffer_thr = n_workers * 2  # below this thr request data
 
     # Avoid busy waiting
     waiting_workers = []
@@ -180,10 +181,11 @@ def run_recommender_system(
 
                         if not data_requested:
 
-                            comm_world.send(
-                                ("recommender_system", "dataReq"),
-                                dest=rank_index["data_manager"],
-                            )
+                            for _ in range(n_workers):
+                                comm_world.send(
+                                    ("recommender_system", "data_request"),
+                                    dest=rank_index["data_manager"],
+                                )
 
                             data_requested = True
 
@@ -235,22 +237,23 @@ def run_recommender_system(
                         dest=rank_index["analyzer"],
                     )
 
-                    comm_buffer.extend(users)
+                    comm_buffer.append(users)
 
                     # print(
-                    #     f"[{gettimestamp()}] RecSys > prefetch size {len(prefetch_buffer)}...",
+                    #     f"[{gettimestamp()}] RecSys > prefetch size {len(comm_buffer)}...",
                     #     flush=True,
                     # )
 
-                    # Handle waiting workers
-                    for worker_rank in waiting_workers:
-                        comm_world.send(
-                            ("recommender_system", comm_buffer.pop(0)),
-                            dest=worker_rank,
-                        )
-                    waiting_workers.clear()
-
                     data_requested = False
+
+                    # Handle waiting workers
+                    if len(comm_buffer) >= len(waiting_workers):
+                        for worker_rank in waiting_workers:
+                            comm_world.send(
+                                ("recommender_system", comm_buffer.pop(0)),
+                                dest=worker_rank,
+                            )
+                        waiting_workers.clear()
 
         else:
 
