@@ -21,7 +21,7 @@ This implementation processes agents in batches. The batch size can be configure
 
 The logical target architecture of the system is illustrated in the following diagram:
 
-![Logical Architecture](architecture.png)
+![Logical Architecture](architecture/simsom_2025-08-05.jpg)
 
 ## Planned Improvements
 
