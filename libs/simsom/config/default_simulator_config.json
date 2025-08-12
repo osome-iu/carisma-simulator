@@ -10,6 +10,6 @@
     "filter_illegal": true,
     "verbose": true,
     "print_interval": 100,
-    "save_active_interactions": false,
+    "save_active_interactions": true,
     "save_passive_interactions": false
 }

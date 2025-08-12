@@ -54,6 +54,9 @@ def run_data_manager(
     for u in users:
         users_dict[u.uid] = u
 
+    # All actions
+    firehose = []
+
     # Clock
     clock = ClockManager()
 
@@ -87,6 +90,8 @@ def run_data_manager(
                     #     flush=True,
                     # )
 
+                    firehose_pack = []
+
                     for processed_user_pack in payload:
 
                         # Unpack the agent + incoming messages and passive actions
@@ -95,6 +100,7 @@ def run_data_manager(
                         # Assign a timestamp
                         for msg in new_msgs:
                             msg.time = clock.next_time()  # type: ignore
+                            firehose_pack.append(msg)
 
                         # Updating main structures
                         outgoing_messages[user.uid].extend(new_msgs)  # type: ignore
@@ -102,6 +108,8 @@ def run_data_manager(
 
                         # Updating user object
                         users_dict[user.uid] = user  # type: ignore
+
+                    firehose.append(firehose_pack)
 
                 elif sender == "recommender_system":
 
@@ -149,15 +157,30 @@ def run_data_manager(
                             selected_users.clear()
                             # print(f"[{gettimestamp()}] DataMngr: user reset", flush=True)
 
+                    # Firehose data
+                    firehose_flush = []
+                    if len(firehose) > 0:
+                        firehose_flush = firehose.pop(0)
+
+                    # print(
+                    #     f"[{gettimestamp()}] DataMngr >> sending {len(firehose_flush)} messages",
+                    #     flush=True,
+                    # )
+
+                    # print(
+                    #     f"[{gettimestamp()}] DataMngr >> firehose size: {len(firehose)}",
+                    #     flush=True,
+                    # )
+
                     comm_world.send(
-                        ("data_manager", users_pack_batch),
+                        ("data_manager", (users_pack_batch, firehose_flush)),
                         dest=rank_index["recommender_system"],
                     )
 
                 elif sender == "policy_evaluator":
 
                     # print(
-                    #     f"[{gettimestamp()}] DataMngr > data from policy evaluator",
+                    #     f"[{gettimestamp()}] DataMngr >> data from policy evaluator",
                     #     flush=True,
                     # )
                     # Get the moderated user/content info and apply logic to data

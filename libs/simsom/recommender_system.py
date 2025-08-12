@@ -198,29 +198,31 @@ def run_recommender_system(
 
                 if sender == "data_manager":
 
-                    data = payload
+                    user_batch, firehose_chunk = payload
 
                     users = []
                     passivities = []
                     activities = []
 
                     # Unpack the data and iterate over the contents
-                    for user, active_actions, passive_actions in data:
+                    for user, active_actions, passive_actions in user_batch:
 
                         # Get the message from inside and outside the network
-                        in_messages = []
-                        out_messages = []
+                        local_activities = []
+                        global_activities = []
 
                         # Keep track of the messages using a global inventory
-                        global_inventory.extend(active_actions)
+                        # global_inventory.extend(active_actions) # old implementation
+                        global_inventory.extend(firehose_chunk)
+
                         for activity in global_inventory:
                             if activity.uid in user.friends:  # type: ignore
-                                in_messages.append(activity)
+                                local_activities.append(activity)
                             else:
-                                out_messages.append(activity)
+                                global_activities.append(activity)
 
                         # Build the newsfeed for the agent
-                        user.newsfeed = build_feed(user, in_messages, out_messages)  # type: ignore
+                        user.newsfeed = build_feed(user, local_activities, global_activities)  # type: ignore
 
                         # Collect the user and the actions
                         # so we can send them to the analyzer
@@ -228,12 +230,13 @@ def run_recommender_system(
                         passivities.extend(passive_actions)
                         activities.extend(active_actions)
 
-                    if len(global_inventory) > 2000:
-                        # Remove the oldest 1000 messages so we don't run out of memory
-                        global_inventory = global_inventory[-1000:]
+                    if len(global_inventory) > 10_000:
+                        # Keep last K message
+                        global_inventory = global_inventory[-10_000:]
 
+                    user_pack = (users, activities, passivities)
                     comm_world.send(
-                        ("recommender_system", (users, activities, passivities)),
+                        ("recommender_system", (user_pack, firehose_chunk)),
                         dest=rank_index["analyzer"],
                     )
 

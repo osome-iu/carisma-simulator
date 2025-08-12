@@ -219,11 +219,13 @@ def run_analyzer(
             if alive:
 
                 # Unpack the data
-                users, activities, passivities = payload
+                users, activities, passivities = payload[0]
+                # Firehose
+                firehose_chunk = payload[1]
                 # Count the number of messages
-                n_data += len(activities)
+                n_data += len(firehose_chunk)  # len(activities)
                 # Count the number of user until now
-                intermediate_n_user += len(users)  # previous: increment only by 1
+                intermediate_n_user += len(users)
                 # print(f"n_data {n_data}", flush=True)
                 # print(f"intermediate_n_user: {intermediate_n_user}", flush=True)
 
@@ -240,7 +242,8 @@ def run_analyzer(
                     csv_out_act = csv.writer(out_act)
 
                 try:
-                    for m in activities:
+                    # for m in activities:
+                    for m in firehose_chunk:
                         quality_sum += m.quality  # type: ignore
                         interval_quality += m.quality  # type: ignore
                         message_count += 1
@@ -299,7 +302,8 @@ def run_analyzer(
                 elif sliding_window_method:
 
                     # Save the quality of the messages in the current window
-                    current_quality_list.extend([m.quality for m in activities])  # type: ignore
+                    # current_quality_list.extend([m.quality for m in activities])  # type: ignore
+                    current_quality_list.extend([m.quality for m in firehose_chunk])  # type: ignore
 
                     # Calculate the average quality for this window and compare to the previous one,
                     # if the abs difference is less than the threshold break and send termination signal

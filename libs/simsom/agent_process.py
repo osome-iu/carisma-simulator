@@ -19,7 +19,7 @@ def run_agent(
     wnum = size - rank
 
     print(
-        f"[{gettimestamp()}] Worker_{wnum} (PID: {os.getpid()}) >> running...",
+        f"[{gettimestamp()}] Worker:{wnum} (PID: {os.getpid()}) >> running...",
         flush=True,
     )
 
@@ -41,7 +41,7 @@ def run_agent(
             # print(f"[{gettimestamp()}] Worker_{rank} > requesting data...", flush=True)
             comm_world.send(("worker", rank), dest=rank_index["recommender_system"])
 
-        if iprobe_with_timeout(comm_world, status=status, pname=f"Worker_{wnum}"):
+        if iprobe_with_timeout(comm_world, status=status, pname=f"Worker:{wnum}"):
 
             # print(f"[{gettimestamp()}] Worker_{rank} > receiving data...", flush=True)
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
@@ -54,7 +54,7 @@ def run_agent(
             if alive and payload == "STOP":
 
                 print(
-                    f"[{gettimestamp()}] Worker_{wnum} >> stop signal detected from {sender}!",
+                    f"[{gettimestamp()}] Worker:{wnum} >> stop signal detected from {sender}!",
                     flush=True,
                 )
 
@@ -100,19 +100,19 @@ def run_agent(
         else:
 
             print(
-                f"[{gettimestamp()}] Worker_{wnum} >> closing...",
+                f"[{gettimestamp()}] Worker:{wnum} >> closing...",
                 flush=True,
             )
 
             if alive:
 
-                print(f"[{gettimestamp()}] Worker_{wnum} >> crashing...", flush=True)
+                print(f"[{gettimestamp()}] Worker:{wnum} >> crashing...", flush=True)
                 # TODO: handle crash
 
             print(
-                f"[{gettimestamp()}] Worker_{wnum} >> entering barrier...", flush=True
+                f"[{gettimestamp()}] Worker:{wnum} >> entering barrier...", flush=True
             )
             comm_world.barrier()
             break
 
-    print(f"[{gettimestamp()}] Worker_{wnum} >> closed.", flush=True)
+    print(f"[{gettimestamp()}] Worker:{wnum} >> closed.", flush=True)
