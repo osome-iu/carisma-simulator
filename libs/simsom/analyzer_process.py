@@ -122,8 +122,8 @@ def run_analyzer(
     sliding_window_size: int,
     sliding_window_threshold: float,
     # Params for max target method
-    max_interactions_method: bool,
-    max_iteration_target: int,
+    max_activities_method: bool,
+    max_actvities_target: int,
     # Params for exponential moving average method
     ema_quality_method: bool,
     ema_quality_convergence: float,
@@ -150,7 +150,7 @@ def run_analyzer(
     status = MPI.Status()
 
     # keep track of the number of messages
-    n_data = 0
+    data_size = 0
     # keep track of the number of users
     intermediate_n_user = 0
     # keep track of the quality of the messages for interval printing
@@ -169,30 +169,45 @@ def run_analyzer(
     ema_users = []
     # value to calculate the current quality each N iterations (or after T time)
     current_quality = 1
-    # ????
-    csv_out_act = None
 
+    # Initialize files if we are saving on disk
+    if save_active_interactions or save_passive_interactions:
+        simtools.init_files(folder_path, file_path_activity, file_path_passivity)
+    # TODO: do not create a file if is not necessary (e.g. empty passivity file)
+
+    # Activities writings
+    out_act = None
+    act_writer = None
+    if save_active_interactions:
+        out_act = open(file_path_activity, "a", newline="", encoding="utf-8")
+        act_writer = csv.writer(out_act)
+
+    # Passivities writings
+    out_pas = None
+    pas_writer = None
+    if save_passive_interactions:
+        out_pas = open(file_path_passivity, "a", newline="", encoding="utf-8")
+        pas_writer = csv.writer(out_pas)
+
+    # Convergence mode handling
     convergence_flags = enforce_single_convergence_method(
-        max_interactions_method=max_interactions_method,
+        max_interactions_method=max_activities_method,
         sliding_window_method=sliding_window_method,
         ema_quality_method=ema_quality_method,
     )
 
-    max_interactions_method = convergence_flags["max_interactions_method"]
+    max_activities_method = convergence_flags["max_interactions_method"]
     sliding_window_method = convergence_flags["sliding_window_method"]
     ema_quality_method = convergence_flags["ema_quality_method"]
 
-    if max_interactions_method:
-        exec_name = "Max iterations"
+    if max_activities_method:
+        exec_name = "Max Activities"
     elif sliding_window_method:
-        exec_name = "Sliding windows"
+        exec_name = "Sliding Windows"
     else:
-        exec_name = "Exponential moving average"
+        exec_name = "Exponential Moving Average"
 
     print(f"[{gettimestamp()}] Analyzer >> Execution with {exec_name}")
-
-    # Initialize files
-    simtools.init_files(folder_path, file_path_activity, file_path_passivity)
 
     alive = True
 
@@ -218,76 +233,67 @@ def run_analyzer(
 
             if alive:
 
-                # Unpack the data
+                # Unpack users and passivities (visualizations)
                 users, activities, passivities = payload[0]
-                # Firehose
+                # NOTE: in future activities could become user newsfeed
+
+                # Unpack firehose chunk
                 firehose_chunk = payload[1]
-                # Count the number of messages
-                n_data += len(firehose_chunk)  # len(activities)
-                # Count the number of user until now
+
+                # Update the number of total activities
+                data_size += len(firehose_chunk)
+
+                # Update the number of processed users
                 intermediate_n_user += len(users)
-                # print(f"n_data {n_data}", flush=True)
-                # print(f"intermediate_n_user: {intermediate_n_user}", flush=True)
 
-                # Write the data to the files
-                # Write the active interactions (post/repost)
-                out_act = None
-                if save_active_interactions:
-                    out_act = open(
-                        file_path_activity,
-                        "a",
-                        newline="",
-                        encoding="utf-8",
-                    )
-                    csv_out_act = csv.writer(out_act)
+                # Update global stats variables
+                for a in firehose_chunk:
+                    quality_sum += a.quality
+                    interval_quality += a.quality
+                    # NOTE: Why use a duplicate value variable? TODO: Fixit
+                    message_count += 1
 
-                try:
-                    # for m in activities:
-                    for m in firehose_chunk:
-                        quality_sum += m.quality  # type: ignore
-                        interval_quality += m.quality  # type: ignore
-                        message_count += 1
-                        if csv_out_act:
-                            csv_out_act.writerow(m.write_action())  # type: ignore
-                finally:
-                    if out_act:
-                        out_act.close()
+                    if act_writer:
+                        act_writer.writerow(a.write_action())
 
-                # Write the passive interactions (view)
-                if save_passive_interactions:
-                    with open(
-                        file_path_passivity, "a", newline="", encoding="utf-8"
-                    ) as out_pas:
-                        csv_out_pas = csv.writer(out_pas)
-                        for a in passivities:
-                            csv_out_pas.writerow(a.write_action())  # type: ignore
+                # # Update newsfeeds stats variables
+                # for u in users:
+                #     # newsfeed = u.newsfeed
+                #     # avg_quality += avg_quality(newsfeed)
+                #     pass
+                # NOTE: for the future
+
+                # Write the passive interactions (views)
+                if pas_writer:
+                    for p in passivities:
+                        pas_writer.writerow(p.write_action())
 
                 if verbose:
                     if message_count != 0 and intermediate_n_user % print_interval == 0:
                         print(
-                            f"[{gettimestamp()}] Analyzer >> Intermediate stats after {intermediate_n_user} ",
-                            f"users: interval quality --> {round(interval_quality / message_count, 2)}",
+                            f"[{gettimestamp()}] Analyzer >> Intermediate stats after",
+                            f"{intermediate_n_user} users: interval quality -->",
+                            f"{round(interval_quality / message_count, 3)}",
                             flush=True,
                         )
                         message_count = 0
                         interval_quality = 0
 
                 # Based on the method for convergence check if we should stop
-                if max_interactions_method:
+                if max_activities_method:
 
                     # Stop and terminate the process
-                    if n_data >= max_iteration_target:
+                    if data_size >= max_actvities_target:
 
                         # Resize the output file to the number of messages
-                        resize_output(max_iteration_target)
+                        resize_output(max_actvities_target)
 
                         print(
                             f"[{gettimestamp()}] Analyzer >> Average quality:",
-                            round(quality_sum / n_data, 2),
+                            round(quality_sum / data_size, 3),
                             flush=True,
                         )
 
-                        # clean_termination_v2(rank_index=rank_index)
                         clean_termination(
                             comm_world=comm_world,
                             sender_rank=rank,
@@ -298,12 +304,12 @@ def run_analyzer(
 
                         alive = False
 
-                # Use the convergence with sliding window or based on overleall messages
+                # Use the convergence with sliding window or based on overall messages
                 elif sliding_window_method:
 
                     # Save the quality of the messages in the current window
                     # current_quality_list.extend([m.quality for m in activities])  # type: ignore
-                    current_quality_list.extend([m.quality for m in firehose_chunk])  # type: ignore
+                    current_quality_list.extend([m.quality for m in firehose_chunk])
 
                     # Calculate the average quality for this window and compare to the previous one,
                     # if the abs difference is less than the threshold break and send termination signal
@@ -320,8 +326,6 @@ def run_analyzer(
                                 <= sliding_window_threshold
                             ):
 
-                                # Resize the output file to the number of messages
-                                # resize_output(n_data)
                                 print(
                                     f"[{gettimestamp()}] Analyzer >> Threshold reached:",
                                     abs(current_quality - previous_quality),
@@ -330,11 +334,10 @@ def run_analyzer(
 
                                 print(
                                     f"[{gettimestamp()}] Analyzer >> Average quality:",
-                                    round(quality_sum / n_data, 2),
+                                    round(quality_sum / data_size, 2),
                                     flush=True,
                                 )
 
-                                # clean_termination_v2(rank_index=rank_index)
                                 clean_termination(
                                     comm_world=comm_world,
                                     sender_rank=rank,
@@ -354,13 +357,13 @@ def run_analyzer(
 
                     for user in users:
                         ema_users.append(user)  # ???
-                        feeds[user.uid] = user.newsfeed  # type: ignore
+                        feeds[user.uid] = user.newsfeed
 
                     if len(ema_users) >= n_users:
                         # NOTE: ema_users used only for len, pls implement a counter
                         ema_users = []  # ???
 
-                        if n_data > 0:
+                        if data_size > 0:
                             # temp solution. At first stages n_data is 0.
 
                             print(
@@ -369,18 +372,18 @@ def run_analyzer(
                             )
 
                             print(
-                                f"[{gettimestamp()}] Analyzer >> ndata {n_data}",
+                                f"[{gettimestamp()}] Analyzer >> ndata {data_size}",
                                 flush=True,
                             )
 
                             print(
-                                f"[{gettimestamp()}] Analyzer >> avg quality {quality_sum/n_data}",
+                                f"[{gettimestamp()}] Analyzer >> avg quality {quality_sum/data_size}",
                                 flush=True,
                             )
 
                             quality_diff, new_quality = update_quality(
                                 current_quality=current_quality,
-                                overall_avg_quality=quality_sum / n_data,
+                                overall_avg_quality=quality_sum / data_size,
                             )
 
                             print(
@@ -404,7 +407,7 @@ def run_analyzer(
 
                                 print(
                                     f"[{gettimestamp()}] Analyzer >> Average quality:",
-                                    round(quality_sum / n_data, 2),
+                                    round(quality_sum / data_size, 2),
                                     flush=True,
                                 )
 
@@ -425,7 +428,7 @@ def run_analyzer(
                             else:
 
                                 print(
-                                    f"[{gettimestamp()}] Analyzer >> Quality diff after {n_data} messages: {quality_diff}"
+                                    f"[{gettimestamp()}] Analyzer >> Quality diff after {data_size} messages: {quality_diff}"
                                 )
 
         else:
@@ -443,5 +446,11 @@ def run_analyzer(
             print(f"[{gettimestamp()}] Analyzer >> entering barrier...", flush=True)
             comm_world.barrier()
             break
+
+    # Close writing streams
+    if out_act is not None:
+        out_act.close()
+    if out_pas is not None:
+        out_pas.close()
 
     print(f"[{gettimestamp()}] Analyzer >> closed.", flush=True)

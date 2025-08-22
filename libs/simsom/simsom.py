@@ -130,8 +130,8 @@ def main():
             sliding_window_size=simulator_config["sliding_window_size"],
             sliding_window_threshold=simulator_config["sliding_window_threshold"],
             # Params for max target method
-            max_interactions_method=simulator_config["max_interactions_method"],
-            max_iteration_target=simulator_config["max_iteration_target"],
+            max_activities_method=simulator_config["max_interactions_method"],
+            max_actvities_target=simulator_config["max_iteration_target"],
             # Params for historical quality
             ema_quality_method=simulator_config["ema_quality_method"],
             ema_quality_convergence=simulator_config["ema_quality_convergence"],
