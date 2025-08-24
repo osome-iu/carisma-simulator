@@ -4,6 +4,7 @@ The data manager is responsible for choosing Users to run, save on disk generate
 
 import random as rnd
 from mpi4py import MPI
+import numpy as np
 from mpi_utils import iprobe_with_timeout, handle_crash, gettimestamp
 import os
 
@@ -25,7 +26,9 @@ class ClockManager:
         """
         current = self.current_time
         # TODO: find a distribution for this
-        self.current_time += rnd.random() * 0.02
+        # self.current_time += rnd.random() * 0.0003
+        delta = np.abs(np.random.normal(0.0003, 0.0005))
+        self.current_time += delta
 
         return current
 
