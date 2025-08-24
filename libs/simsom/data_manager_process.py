@@ -54,8 +54,11 @@ def run_data_manager(
     for u in users:
         users_dict[u.uid] = u
 
-    # All actions
+    # Firehose
     firehose_buffer = []
+    firehose_chunk = []
+    # returned_workers = 0
+    # n_workers = size - rank_index["worker"]
 
     # Clock
     clock = ClockManager()
@@ -91,6 +94,7 @@ def run_data_manager(
                     # )
 
                     firehose_chunk = []
+                    # returned_workers += 1
 
                     for processed_user_pack in payload:
 
@@ -99,7 +103,7 @@ def run_data_manager(
 
                         # Assign a timestamp
                         for msg in new_msgs:
-                            msg.time = clock.next_time()  # type: ignore
+                            # msg.time = clock.next_time()  # type: ignore
                             firehose_chunk.append(msg)
 
                         # Updating main structures
@@ -109,7 +113,30 @@ def run_data_manager(
                         # Updating user object
                         users_dict[user.uid] = user  # type: ignore
 
+                    # Timestamping
+                    rnd.shuffle(firehose_chunk)
+                    for msg in firehose_chunk:
+                        msg.time = clock.next_time()
+
                     firehose_buffer.append(firehose_chunk)
+
+                    # if returned_workers == n_workers:
+                    #     # Shuffle actions
+                    #     rnd.shuffle(firehose_chunk)
+                    #     # Refill the buffer
+                    #     action_block_size = len(firehose_chunk) / n_workers
+                    #     action_block = []
+                    #     for n, action in enumerate(firehose_chunk):
+                    #         # Assign timestamp
+                    #         action.time = clock.next_time()
+                    #         if n % action_block_size == 0:
+                    #             firehose_buffer.append(action_block)
+                    #             action_block = []
+                    #         else:
+                    #             action_block.append(action)
+                    #     # Reset control vars
+                    #     firehose_chunk.clear()
+                    #     returned_workers = 0
 
                 elif sender == "recommender_system":
 
@@ -168,7 +195,7 @@ def run_data_manager(
                     # )
 
                     # print(
-                    #     f"[{gettimestamp()}] DataMngr >> firehose size: {len(firehose)}",
+                    #     f"[{gettimestamp()}] DataMngr >> firehose buffer size: {len(firehose_buffer)}",
                     #     flush=True,
                     # )
 
