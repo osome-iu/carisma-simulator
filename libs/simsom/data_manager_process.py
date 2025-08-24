@@ -54,11 +54,9 @@ def run_data_manager(
     for u in users:
         users_dict[u.uid] = u
 
-    # Firehose
+    # Firehose structures
     firehose_buffer = []
     firehose_chunk = []
-    # returned_workers = 0
-    # n_workers = size - rank_index["worker"]
 
     # Clock
     clock = ClockManager()
@@ -66,6 +64,7 @@ def run_data_manager(
     # Manage user selection
     selected_users = set()
 
+    # Process status
     alive = True
 
     # Bootstrap sync
@@ -94,16 +93,14 @@ def run_data_manager(
                     # )
 
                     firehose_chunk = []
-                    # returned_workers += 1
 
                     for processed_user_pack in payload:
 
                         # Unpack the agent + incoming messages and passive actions
                         user, new_msgs, passive_actions = processed_user_pack
 
-                        # Assign a timestamp
+                        # Load the firehose chunk
                         for msg in new_msgs:
-                            # msg.time = clock.next_time()  # type: ignore
                             firehose_chunk.append(msg)
 
                         # Updating main structures
@@ -119,24 +116,6 @@ def run_data_manager(
                         msg.time = clock.next_time()
 
                     firehose_buffer.append(firehose_chunk)
-
-                    # if returned_workers == n_workers:
-                    #     # Shuffle actions
-                    #     rnd.shuffle(firehose_chunk)
-                    #     # Refill the buffer
-                    #     action_block_size = len(firehose_chunk) / n_workers
-                    #     action_block = []
-                    #     for n, action in enumerate(firehose_chunk):
-                    #         # Assign timestamp
-                    #         action.time = clock.next_time()
-                    #         if n % action_block_size == 0:
-                    #             firehose_buffer.append(action_block)
-                    #             action_block = []
-                    #         else:
-                    #             action_block.append(action)
-                    #     # Reset control vars
-                    #     firehose_chunk.clear()
-                    #     returned_workers = 0
 
                 elif sender == "recommender_system":
 
