@@ -1,6 +1,5 @@
 name: Task Form
 description: General tasks that must be completed.
-title: ''
 projects: ['osome-iu/1']
 type: 'Task'
 body:
