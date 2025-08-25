@@ -1,6 +1,5 @@
 name: Bug Report Form
 description: Report a bug or issue that needs to be fixed
-title: ' [BUG] '
 labels: ['bug']
 projects: ['osome-iu/1']
 type: 'Bug'
