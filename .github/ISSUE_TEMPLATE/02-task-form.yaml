@@ -1,7 +1,8 @@
 name: Task Form
 description: General tasks that must be completed.
-title: ' [TASK] '
+title: ''
 projects: ['osome-iu/1']
+type: 'Task'
 body:
   - type: textarea
     id: description
