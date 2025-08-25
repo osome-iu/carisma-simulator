@@ -29,8 +29,6 @@ import argparse
 from data_manager_process import run_data_manager
 from analyzer_process import run_analyzer
 from policy_filter_process import run_policy_filter
-
-# from agent_pool_manager_process import run_agent_pool_manager
 from agent_process import run_agent
 from recommender_system import run_recommender_system
 
@@ -73,17 +71,6 @@ def main():
     size = comm_world.Get_size()
     rank = comm_world.Get_rank()
 
-    # Simulation contstraints (parametrize)
-    users = (
-        simtools.init_network(file=network_config["real_world_network"])
-        if network_config["from_file"] > 0
-        else simtools.init_network(
-            net_size=network_config["net_size"],
-            p=network_config["probability_follow"],
-            k_out=network_config["avg_n_friend"],
-        )
-    )
-
     if size < 5:
 
         if rank == 0:
@@ -91,6 +78,18 @@ def main():
         sys.exit(1)
 
     if rank == RANK_INDEX["data_manager"]:
+
+        # Simulation contstraints (parametrize)
+        print("Generating the network...", flush=True)
+        users = (
+            simtools.init_network(file=network_config["real_world_network"])
+            if network_config["from_file"] > 0
+            else simtools.init_network(
+                net_size=network_config["net_size"],
+                p=network_config["probability_follow"],
+                k_out=network_config["avg_n_friend"],
+            )
+        )
 
         run_data_manager(
             users=users,
@@ -136,7 +135,7 @@ def main():
             ema_quality_method=simulator_config["ema_quality_method"],
             ema_quality_convergence=simulator_config["ema_quality_convergence"],
             # Number of users
-            n_users=len(users),
+            n_users=network_config["net_size"],
             # Params for printing stuff during the execution
             verbose=simulator_config["verbose"],
             print_interval=simulator_config["print_interval"],
@@ -144,15 +143,6 @@ def main():
             save_active_interactions=simulator_config["save_active_interactions"],
             save_passive_interactions=simulator_config["save_passive_interactions"],
         )
-
-    # elif rank == RANK_INDEX["agent_pool_manager"]:
-
-    #     run_agent_pool_manager(
-    #         comm_world=comm_world,
-    #         rank=rank,
-    #         size=size,
-    #         rank_index=RANK_INDEX,
-    #     )
 
     elif rank >= RANK_INDEX["worker"]:
         run_agent(

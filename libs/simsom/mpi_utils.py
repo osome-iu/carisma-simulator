@@ -65,7 +65,7 @@ def clean_termination(
     - sender_rank: int, rank of the process sending the termination signal
     - sender_role: str, identifier of the role of the sender (for logging)
     """
-    print(f"[{gettimestamp()}] {log_name} > {message}", flush=True)
+    print(f"[{gettimestamp()}] {log_name} >> {message}", flush=True)
 
     proc_ranks = list(range(comm_world.Get_size()))
 

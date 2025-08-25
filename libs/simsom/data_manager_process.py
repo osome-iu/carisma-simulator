@@ -2,11 +2,12 @@
 The data manager is responsible for choosing Users to run, save on disk generated data and
 """
 
+import os
 import random as rnd
 from mpi4py import MPI
 import numpy as np
+from collections import deque
 from mpi_utils import iprobe_with_timeout, handle_crash, gettimestamp
-import os
 
 
 class ClockManager:
@@ -65,7 +66,11 @@ def run_data_manager(
     clock = ClockManager()
 
     # Manage user selection
-    selected_users = set()
+    # selected_users = set()
+
+    # Trasforma la lista utenti in una deque per rotazione veloce
+    users = deque(users)
+    batch_size = min(batch_size, len(users))
 
     # Process status
     alive = True
@@ -122,49 +127,40 @@ def run_data_manager(
 
                 elif sender == "recommender_system":
 
-                    users_pack_batch = []
+                    user_pack_batch = []
 
-                    # Since we risk to shuffle the users when we build the batch, we need to
-                    # make sure we don't pick the same user twice
-                    batch_size = min(batch_size, len(users) - len(selected_users))
-                    # print(f"[{gettimestamp()}] DataMngr > {len(users)}", flush=True)
-                    # print(
-                    #     f"[{gettimestamp()}] DataMngr > {len(selected_users)}",
-                    #     flush=True,
-                    # )
-                    # print(f"[{gettimestamp()}] DataMngr > {batch_size}", flush=True)
+                    # Contatore per sapere quanti utenti abbiamo attraversato
+                    round_counter = 0
 
-                    # Build the batch
                     for _ in range(batch_size):
-                        # Always pick the first user (round-robin style)
-                        picked_user = users_dict[users[0].uid]
 
-                        # Track selected user
-                        selected_users.add(picked_user.uid)
-                        # NOTE: A set could be avoided
+                        # Round-robin: prendi e rimetti in fondo
+                        picked_user = users.popleft()
+                        users.append(picked_user)
 
-                        # Move picked user to the end of the list
-                        users = users[1:] + [picked_user]
-                        # NOTE: Can be optimized
+                        round_counter += 1
 
-                        # Get the in and out messages based on friends
+                        # Prepara le azioni
                         active_actions_send = outgoing_messages[picked_user.uid]
                         passive_actions_send = outgoing_passivities[picked_user.uid]
 
-                        # Add it to the batch
-                        users_pack_batch.append(
-                            (picked_user, active_actions_send, passive_actions_send)
+                        # Aggiungi al batch
+                        user_pack_batch.append(
+                            (
+                                users_dict[picked_user.uid],
+                                active_actions_send,
+                                passive_actions_send,
+                            )
                         )
 
-                        # TODO: Flush outgoing messages ????
-                        outgoing_messages[picked_user.uid] = []
-                        outgoing_passivities[picked_user.uid] = []
+                        # Svuota outgoing
+                        outgoing_messages[picked_user.uid].clear()
+                        outgoing_passivities[picked_user.uid].clear()
 
-                        # Before we process all the users, we need to shuffle them
-                        if len(selected_users) == len(users):
+                        # Se abbiamo attraversato tutti gli utenti, mischiamo
+                        if round_counter == len(users):
                             rnd.shuffle(users)
-                            selected_users.clear()
-                            # print(f"[{gettimestamp()}] DataMngr: user reset", flush=True)
+                            round_counter = 0
 
                     # Firehose data
                     firehose_flush = []
@@ -182,7 +178,7 @@ def run_data_manager(
                     # )
 
                     comm_world.send(
-                        ("data_manager", (users_pack_batch, firehose_flush)),
+                        ("data_manager", (user_pack_batch, firehose_flush)),
                         dest=rank_index["recommender_system"],
                     )
 

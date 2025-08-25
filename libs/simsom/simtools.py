@@ -14,9 +14,9 @@ MINIMUM_REQUIRED_ATTRIBS = {"uid", "utype", "postperday", "qualitydistr"}
 QUALITYDISTR = "(0.5, 0.15, 0, 1)"
 
 
-def generate_post_per_day(cap=120):
+def generate_post_per_day(min_cap=0, max_cap=120):
     value = np.random.lognormal(mean=0.8, sigma=0.9)
-    return max(1, min(int(np.round(value)), cap))
+    return max(min_cap, min(int(np.round(value)), max_cap))
 
 
 def read_empirical_network(file):
@@ -82,7 +82,7 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
             # v["utype"] = random.choice(["lurker", "normal user"])
             v["utype"] = "normal user"
             # v["postperday"] = 0 if v["utype"] == "lurker" else random.uniform(0, 50)
-            ppd = generate_post_per_day(cap=120)
+            ppd = generate_post_per_day(max_cap=120)
             # NOTE: 120 is estimated from Vaccinitaly (307 days)
             v["postperday"] = 0 if v["utype"] == "lurker" else ppd
             v["qualitydistr"] = QUALITYDISTR

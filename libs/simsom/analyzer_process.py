@@ -411,7 +411,6 @@ def run_analyzer(
                                     flush=True,
                                 )
 
-                                # clean_termination_v2(rank_index=rank_index)
                                 clean_termination(
                                     comm_world=comm_world,
                                     sender_rank=rank,
