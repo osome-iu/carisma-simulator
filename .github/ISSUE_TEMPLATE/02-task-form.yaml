@@ -1,0 +1,43 @@
+name: Task Form
+description: General tasks that must be completed.
+title: ' [TASK] '
+projects: ['osome-iu/1']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: What's the background on this task and what do we need to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: closed
+    attributes:
+      label: Closed When...
+      description: The definition of Done for this task.  What deliverable or discrete item needs to be checked off before we can call this task Done?
+      value: |
+        - [ ] 
+        - [ ] Summary and Retrospective completed.
+      placeholder: |
+        - [ ] Deliverable 1 is complete
+        - [ ] Update Deployed
+    validations:
+      required: true
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Github Issues or Web Pages
+      description: If there are any related Github issues in this or another repository, or any webpages (stack overflow, testing sites, etc) that are useful for this ticket, add them here. 
+  - type: textarea
+    id: extra
+    attributes:
+      label: Any Context/Other Information
+      description: Extra info, such as which meeting this was discussed in or the body of an email relevant
+  - type: textarea
+    id: retro
+    attributes:
+      label: Summary and Retrospective
+      description: |
+        This is a placeholder; do not edit the value until after the task is completed.
+      value: |
+        *When this task is completed, but before it is closed, edit this section with a few sentences describing the actual work done, decisions made, lessons learned, and a summary of any discussion that took place in the comments.  This will help to keep institutional knowledge organized and easily accessible.*
