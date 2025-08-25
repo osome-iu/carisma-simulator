@@ -1,0 +1,60 @@
+name: Bug Report Form
+description: Report a bug or issue that needs to be fixed
+title: ' [BUG] '
+labels: ['bug']
+projects: ['osome-iu/1']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Describe the bug
+    validations:
+      required: true
+  - type: textarea
+    id: closed
+    attributes:
+      label: Closed When
+      description: How do we know this issue can be closed?
+      value: | 
+        - [ ] We are confident that this bug has been fixed permanently.
+        - [ ] Summary and Retrospective completed.
+  - type: textarea
+    id: solution
+    attributes:
+      label: Possible Solution
+      description: Thoughts on how you might fix this?
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Information
+      description: Any thing else that might be relevant? Environment info?  Screenshots? Bug report emails?
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce the bug?
+      placeholder: |
+        1.
+        2.
+        3.
+        ...
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What's it supposed to do?
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What does it actually do?
+  - type: textarea
+    id: retro
+    attributes:
+      label: Summary and Retrospective
+      description: |
+        This is a placeholder; do not edit the value until after the task is completed.
+      value: |
+        *When this task is completed, but before it is closed, edit this section with a few sentences describing the actual work done, decisions made, lessons learned, and a summary of any discussion that took place in the comments.  This will help to keep institutional knowledge organized and easily accessible.*
+
