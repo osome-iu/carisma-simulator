@@ -1,13 +1,15 @@
-"""class for a message.
+"""
+Class for a message.
+
 This class allow us to have the message object that is put inside
 user's feed.
+
 Messages are object used in the users.py as vector of contents.
 """
 
 import random
 import numpy as np
 from action import Action
-
 
 class Message(Action):
 
@@ -21,7 +23,7 @@ class Message(Action):
         exposure: list = [],
     ) -> None:
 
-        Action.__init__(self, mid, uid)
+        super().__init__(mid, uid)
         self.quality_params = quality_params
         self.topics = topics
         self.is_shadow = is_shadow
@@ -33,8 +35,10 @@ class Message(Action):
             self.quality = None
         self.time = None
         self.reshared_id = np.nan
-        self.reshared_original_id = np.nan
         self.reshared_user_id = np.nan
+        self.reshared_original_id = np.nan
+        self.reshared_original_user_id = np.nan
+
 
     def expon_quality(self, lambda_quality=-5) -> float:
         """return a quality value x via inverse transform sampling
@@ -126,5 +130,6 @@ class Message(Action):
             self.reshared_id,
             self.reshared_user_id,
             self.reshared_original_id,
+            self.reshared_original_user_id,
             self.time,
         )

@@ -8,6 +8,7 @@ import random
 import pandas as pd
 from view import View
 
+
 def generate_user_topics(total_topics=15, min_active=5, max_active=15):
     # Initialize all topics to 0
     topics = [0] * total_topics
@@ -19,7 +20,8 @@ def generate_user_topics(total_topics=15, min_active=5, max_active=15):
     # Assign random interest levels from 0 to 1 for topics
     for idx in active_topic_indices:
         topics[idx] = random.random()
-    return topics 
+
+    return topics
 
 
 class User:
@@ -63,6 +65,7 @@ class User:
         """
         actions = []
         passive_actions = []
+
         for _ in range(self.post_per_day):
             if len(self.newsfeed) > 0 and random.random() > self.mu:
                 passive_action, active_action = self.reshare_message()
@@ -71,6 +74,7 @@ class User:
             else:
                 actions.append(self.post_message())
         self.newsfeed = self.newsfeed[: self.cut_off]
+
         return actions, passive_actions
 
     def reshare_message(self) -> None:
@@ -108,15 +112,18 @@ class User:
         message_reshared.appeal = target.appeal
         # If it's not the first reshare we get the attributes
         if pd.notna(target.reshared_id):
-            message_reshared.reshared_original_id = target.reshared_original_id
             message_reshared.reshared_id = target.aid
+            message_reshared.reshared_original_id = target.reshared_original_id
+            message_reshared.reshared_original_user_id = target.reshared_original_user_id
         else:
             # If it's the first reshare reshared_original_id and reshared_id are the same
             message_reshared.reshared_id = target.aid
             message_reshared.reshared_original_id = target.aid
+            message_reshared.reshared_original_user_id = target.uid
         message_reshared.reshared_user_id = target.uid
         # self.reshared_messages.append(message_reshared)
         self.repost_counter += 1
+
         return passive_actions, message_reshared
 
     def post_message(self) -> None:
@@ -138,11 +145,15 @@ class User:
             is_shadow=self.is_shadow,
             quality_params=self.quality_params,
         )
+
         # self.shared_messages.append(message_created)
         self.post_counter += 1
+
         return message_created
 
-    def generate_message_vector(self, user_vector: list, max_topics:int=5, noise_level:float=0.2) -> list:
+    def generate_message_vector(
+        self, user_vector: list, max_topics: int = 5, noise_level: float = 0.2
+    ) -> list:
         """function to generate a message vector based on the user's interests.
         The function randomly selects a number of topics from the user's interests
         and assigns a value to each topic based on the user's interest level.
@@ -159,7 +170,9 @@ class User:
         total_topics = len(user_vector)
         message_vector = [0.0] * total_topics
 
-        interested_topics = [(i, score) for i, score in enumerate(user_vector) if score > 0]
+        interested_topics = [
+            (i, score) for i, score in enumerate(user_vector) if score > 0
+        ]
 
         # Use interest scores as weights for sampling
         indices, weights = zip(*interested_topics)
@@ -183,7 +196,6 @@ class User:
                 message_vector[noise_topic] = round(random.uniform(0.1, 1.0), 3)
 
         return message_vector
-
 
     def __str__(self) -> str:
         return "\n".join(

@@ -135,6 +135,7 @@ def init_files(
                     "reshared_id",
                     "reshared_user_id",
                     "reshared_original_id",
+                    "reshared_original_user_id",
                     "clock_time",
                 ]
             )

@@ -7,7 +7,7 @@
     "max_iteration_target": 10000, 
     "ema_quality_method": true,
     "ema_quality_convergence": 0.01,
-    "filter_illegal": true,
+    "filter_illegal": false,
     "verbose": true,
     "print_interval": 100,
     "save_active_interactions": true,
