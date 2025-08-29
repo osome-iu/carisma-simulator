@@ -5,33 +5,32 @@ The data manager is responsible for choosing Users to run, save on disk generate
 import os
 import random as rnd
 from mpi4py import MPI
-import numpy as np
 from collections import deque
 from mpi_utils import iprobe_with_timeout, handle_crash, gettimestamp
+from clock_manager import ClockManager
 
+# class ClockManager:
+#     """
+#     Class responsible for clock simulation,
+#     the class has the task of giving a value obtained from a distribution.
+#     """
 
-class ClockManager:
-    """
-    Class responsible for clock simulation,
-    the class has the task of giving a value obtained from a distribution.
-    """
+#     def __init__(self) -> None:
+#         self.current_time = 0
 
-    def __init__(self) -> None:
-        self.current_time = 0
+#     def next_time(self):
+#         """
+#         Return the current time and generate the next
+#         Returns:
+#             int: current time
+#         """
+#         current = self.current_time
+#         # TODO: find a distribution for this
+#         # self.current_time += rnd.random() * 0.0003
+#         delta = np.abs(np.random.normal(0.0003, 0.0005))
+#         self.current_time += delta
 
-    def next_time(self):
-        """
-        Return the current time and generate the next
-        Returns:
-            int: current time
-        """
-        current = self.current_time
-        # TODO: find a distribution for this
-        # self.current_time += rnd.random() * 0.0003
-        delta = np.abs(np.random.normal(0.0003, 0.0005))
-        self.current_time += delta
-
-        return current
+#         return current
 
 
 def run_data_manager(
@@ -62,15 +61,16 @@ def run_data_manager(
     firehose_buffer = []
     firehose_chunk = []
 
-    # Clock
-    clock = ClockManager()
+    # Clock for time stamp generation
+    clock = ClockManager(n_users=len(users))
 
     # Manage user selection
     # selected_users = set()
 
     # Trasforma la lista utenti in una deque per rotazione veloce
-    users = deque(users)
     batch_size = min(batch_size, len(users))
+    users = deque(users)
+    rnd.shuffle(users)
 
     # Process status
     alive = True
@@ -121,6 +121,7 @@ def run_data_manager(
                     # Timestamping
                     rnd.shuffle(firehose_chunk)
                     for msg in firehose_chunk:
+                        # msg.time = clock.next_time()
                         msg.time = clock.next_time()
 
                     firehose_buffer.append(firehose_chunk)
@@ -129,22 +130,22 @@ def run_data_manager(
 
                     user_pack_batch = []
 
-                    # Contatore per sapere quanti utenti abbiamo attraversato
+                    # Count total sent users
                     round_counter = 0
 
                     for _ in range(batch_size):
 
-                        # Round-robin: prendi e rimetti in fondo
+                        # Round-robin: pick a user from tail and put i the head
                         picked_user = users.popleft()
                         users.append(picked_user)
 
                         round_counter += 1
 
-                        # Prepara le azioni
+                        # Prepare actions to send
                         active_actions_send = outgoing_messages[picked_user.uid]
                         passive_actions_send = outgoing_passivities[picked_user.uid]
 
-                        # Aggiungi al batch
+                        # Create the batch tuple
                         user_pack_batch.append(
                             (
                                 users_dict[picked_user.uid],
@@ -153,11 +154,11 @@ def run_data_manager(
                             )
                         )
 
-                        # Svuota outgoing
+                        # Flush outgoing
                         outgoing_messages[picked_user.uid].clear()
                         outgoing_passivities[picked_user.uid].clear()
 
-                        # Se abbiamo attraversato tutti gli utenti, mischiamo
+                        # Shuffle users when every one has been selected
                         if round_counter == len(users):
                             rnd.shuffle(users)
                             round_counter = 0

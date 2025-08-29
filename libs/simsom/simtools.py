@@ -95,7 +95,7 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
         user_i = User(
             uid=graph.vs[node.index]["uid"],
             user_class=graph.vs[node.index]["utype"],
-            post_per_day=int(graph.vs[node.index]["postperday"]),
+            action_per_day=int(graph.vs[node.index]["postperday"]),
             quality_params=eval(graph.vs[node.index]["qualitydistr"]),
             friends=["u" + str(u) for u in friends],
             followers=["u" + str(u) for u in followers],

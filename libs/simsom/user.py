@@ -6,6 +6,7 @@ Original code has to be ported.
 from message import Message
 import random
 import pandas as pd
+import numpy as np
 from view import View
 
 
@@ -30,7 +31,7 @@ class User:
         uid: str,
         user_class: str,
         quality_params: str,
-        post_per_day: float,
+        action_per_day: int,
         friends: list = [],
         followers: list = [],
     ):
@@ -38,11 +39,9 @@ class User:
         self.followers = followers
         self.friends = friends
         self.user_class = user_class
-        self.post_per_day = post_per_day
+        self.action_per_day = action_per_day
         self.quality_params = quality_params
         self.cut_off = 15
-        if self.post_per_day > 15:
-            self.cut_off = self.post_per_day
         self.newsfeed = []
         self.post_counter = 0
         self.repost_counter = 0
@@ -50,34 +49,40 @@ class User:
         self.user_topics = generate_user_topics()
         self.is_suspended = False
         self.is_shadow = False
-        self.mu = 0.5
+        self.mu = 0.6 # Prob of rehsare vs posting
 
-    def make_actions(self) -> None:
-        """function that is responsible for routing the action between new action and re-sharing.
-        The choice is made according to the mu parameter and the user's feed, which must contain at least one message
+        # Ajust cutoff if more actions per day
+        if self.action_per_day > 15:
+            self.cut_off = self.action_per_day
 
-        Args:
-            message_id (str): message_id from the main_sim, is a combination of
-            user_id and a specific index
-            is_shadow (bool): flag to check if the user is under shadow-ban
-            quality_params (tuple, optional): params to get the quality from the beta.
-            Defaults to (0.5, 0.15, 0, 1).
+    def make_actions(self):
         """
-        actions = []
-        passive_actions = []
+        Simpler lognormal version (no rescaling).
+        Distribution entirely controlled by mu_offset and sigma.
+        Easier to tweak by hand, but the median may drift away from t.
+        """
+        actions, passive_actions = [], []
 
-        for _ in range(self.post_per_day):
+        shape = 4 # Tune slightly this param for more realism
+        scale = self.action_per_day / 4
+        n_actions = int(np.random.gamma(shape, scale))
+        # NOTE: lower shape = more variance around average
+        # Try shape = 2 for longer queues
+        # Try shape = 6 or 8 for values concentrated around average
+
+        for _ in range(n_actions):
             if len(self.newsfeed) > 0 and random.random() > self.mu:
-                passive_action, active_action = self.reshare_message()
-                actions.append(active_action)
-                passive_actions.extend(passive_action)
+                passive, active = self.reshare_message()
+                actions.append(active)
+                passive_actions.extend(passive)
             else:
                 actions.append(self.post_message())
-        self.newsfeed = self.newsfeed[: self.cut_off]
 
+        self.newsfeed = self.newsfeed[: self.cut_off]
         return actions, passive_actions
 
-    def reshare_message(self) -> None:
+
+    def reshare_message(self):
         """function to reshare a message, a message is chosen at random within the user's feed.
         A new message is created, taking the attributes (appeal and quality) of the old message,
         the first reshare and the following parents (id and user_id) are kept track of.
@@ -202,7 +207,7 @@ class User:
             [
                 f"User id: {self.uid}",
                 f"- User type: {self.user_class}",
-                f"- Post per day: {self.post_per_day}",
+                f"- Post per day: {self.action_per_day}",
                 f"- Number of post: {self.post_counter}",
                 f"- Number of repost: {self.repost_counter}",
                 f"- Shadow status:  {self.is_shadow}",
