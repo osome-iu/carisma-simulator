@@ -32,7 +32,6 @@ from clock_manager import ClockManager
 
 #         return current
 
-
 def run_data_manager(
     users,
     comm_world: MPI.Intracomm,
@@ -62,10 +61,7 @@ def run_data_manager(
     firehose_chunk = []
 
     # Clock for time stamp generation
-    clock = ClockManager(n_users=len(users))
-
-    # Manage user selection
-    # selected_users = set()
+    clock = ClockManager(n_users=len(users), puda=0.036)
 
     # Trasforma la lista utenti in una deque per rotazione veloce
     batch_size = min(batch_size, len(users))
@@ -190,6 +186,7 @@ def run_data_manager(
                     #     flush=True,
                     # )
                     # Get the moderated user/content info and apply logic to data
+
                     continue
 
                 else:

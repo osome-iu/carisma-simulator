@@ -211,6 +211,8 @@ def run_analyzer(
 
     alive = True
 
+    day_count = 0
+
     # Bootstrap sync
     comm_world.barrier()
 
@@ -268,12 +270,17 @@ def run_analyzer(
                     for p in passivities:
                         pas_writer.writerow(p.write_action())
 
+                # Update elapsed days
+                if firehose_chunk:
+                    day_count = round(firehose_chunk[-1].time, 1)
+
                 if verbose:
                     if message_count != 0 and intermediate_n_user % print_interval == 0:
                         print(
                             f"[{gettimestamp()}] Analyzer >> Intermediate stats after",
                             f"{intermediate_n_user} users: interval quality -->",
                             f"{round(interval_quality / message_count, 3)}",
+                            f"Days: {day_count}",
                             flush=True,
                         )
                         message_count = 0
