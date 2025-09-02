@@ -77,12 +77,14 @@ def enforce_single_convergence_method(**methods) -> dict:
         dict: dictionary with the selected method
     """
     priority = [
-        "max_interactions_method",
+        "day_count_criterion",
         "sliding_window_method",
         "ema_quality_method",
     ]
+
     active = [key for key in priority if methods.get(key, False)]
     selected = active[0] if active else priority[0]
+
     return {key: key == selected for key in priority}
 
 
@@ -122,8 +124,8 @@ def run_analyzer(
     sliding_window_size: int,
     sliding_window_threshold: float,
     # Params for max target method
-    max_activities_method: bool,
-    max_actvities_target: int,
+    day_count_criterion: bool,
+    target_days: int,
     # Params for exponential moving average method
     ema_quality_method: bool,
     ema_quality_convergence: float,
@@ -191,16 +193,16 @@ def run_analyzer(
 
     # Convergence mode handling
     convergence_flags = enforce_single_convergence_method(
-        max_interactions_method=max_activities_method,
+        day_count_criterion=day_count_criterion,
         sliding_window_method=sliding_window_method,
         ema_quality_method=ema_quality_method,
     )
 
-    max_activities_method = convergence_flags["max_interactions_method"]
+    day_count_criterion = convergence_flags["day_count_criterion"]
     sliding_window_method = convergence_flags["sliding_window_method"]
     ema_quality_method = convergence_flags["ema_quality_method"]
 
-    if max_activities_method:
+    if day_count_criterion:
         exec_name = "Max Activities"
     elif sliding_window_method:
         exec_name = "Sliding Windows"
@@ -237,7 +239,7 @@ def run_analyzer(
 
                 # Unpack users and passivities (visualizations)
                 users, activities, passivities = payload[0]
-                # NOTE: in future activities could become user newsfeed
+                # NOTE: in future activities could become user newsfeeds
 
                 # Unpack firehose chunk
                 firehose_chunk = payload[1]
@@ -287,13 +289,13 @@ def run_analyzer(
                         interval_quality = 0
 
                 # Based on the method for convergence check if we should stop
-                if max_activities_method:
+                if day_count_criterion:
 
                     # Stop and terminate the process
-                    if data_size >= max_actvities_target:
+                    if day_count >= target_days:
 
                         # Resize the output file to the number of messages
-                        resize_output(max_actvities_target)
+                        # resize_output(max_actvities_target)
 
                         print(
                             f"[{gettimestamp()}] Analyzer >> Average quality:",
