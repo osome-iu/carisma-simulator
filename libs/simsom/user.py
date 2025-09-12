@@ -12,7 +12,7 @@ from view import View
 
 def generate_user_topics(total_topics=15, min_active=5, max_active=15):
     # Initialize all topics to 0
-    topics = [0] * total_topics
+    topics = [0.0] * total_topics
 
     # Randomly select which topics will be used for the user
     num_active = random.randint(min_active, max_active)
@@ -20,6 +20,7 @@ def generate_user_topics(total_topics=15, min_active=5, max_active=15):
 
     # Assign random interest levels from 0 to 1 for topics
     for idx in active_topic_indices:
+
         topics[idx] = random.random()
 
     return topics
@@ -31,7 +32,7 @@ class User:
         uid: str,
         user_class: str,
         quality_params: str,
-        action_per_day: int,
+        mean_action_per_day: float,
         friends: list = [],
         followers: list = [],
     ):
@@ -39,7 +40,7 @@ class User:
         self.followers = followers
         self.friends = friends
         self.user_class = user_class
-        self.action_per_day = action_per_day
+        self.mean_action_per_day = mean_action_per_day
         self.quality_params = quality_params
         self.cut_off = 15
         self.newsfeed = []
@@ -51,26 +52,21 @@ class User:
         self.is_shadow = False
         self.mu = 0.6 # Prob of rehsare vs posting
 
+        # For experimental time handling
+        self.actions_today = 0
+        # NOTE: This will be set on the fly in data_manager
+        # each time a user is picked
+
         # Ajust cutoff if more actions per day
-        if self.action_per_day > 15:
-            self.cut_off = self.action_per_day
+        if self.mean_action_per_day > 15:
+            self.cut_off = self.mean_action_per_day
 
     def make_actions(self):
-        """
-        Simpler lognormal version (no rescaling).
-        Distribution entirely controlled by mu_offset and sigma.
-        Easier to tweak by hand, but the median may drift away from t.
-        """
+
         actions, passive_actions = [], []
 
-        shape = 4 # Tune slightly this param for more realism
-        scale = self.action_per_day / 4
-        n_actions = int(np.random.gamma(shape, scale))
-        # NOTE: lower shape = more variance around average
-        # Try shape = 2 for longer queues
-        # Try shape = 6 or 8 for values concentrated around average
-
-        for _ in range(n_actions):
+        # Generate actions
+        for _ in range(self.actions_today):
             if len(self.newsfeed) > 0 and random.random() > self.mu:
                 passive, active = self.reshare_message()
                 actions.append(active)
@@ -79,8 +75,8 @@ class User:
                 actions.append(self.post_message())
 
         self.newsfeed = self.newsfeed[: self.cut_off]
-        return actions, passive_actions
 
+        return actions, passive_actions
 
     def reshare_message(self):
         """function to reshare a message, a message is chosen at random within the user's feed.
@@ -207,7 +203,7 @@ class User:
             [
                 f"User id: {self.uid}",
                 f"- User type: {self.user_class}",
-                f"- Post per day: {self.action_per_day}",
+                f"- Action per day: {self.mean_action_per_day}",
                 f"- Number of post: {self.post_counter}",
                 f"- Number of repost: {self.repost_counter}",
                 f"- Shadow status:  {self.is_shadow}",

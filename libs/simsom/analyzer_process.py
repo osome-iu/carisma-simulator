@@ -274,7 +274,7 @@ def run_analyzer(
 
                 # Update elapsed days
                 if firehose_chunk:
-                    day_count = round(firehose_chunk[-1].time, 1)
+                    day_count = round(firehose_chunk[-1].time, 3)
 
                 if verbose:
                     if message_count != 0 and intermediate_n_user % print_interval == 0:

@@ -28,7 +28,7 @@ def run_policy_filter(
 
     while True:
 
-        if iprobe_with_timeout(comm_world, status=status, pname="PolicyMngr"):
+        if iprobe_with_timeout(comm_world, status=status, pname="PolicyMngr", timeout=30):
 
             sender, payload = comm_world.recv(source=MPI.ANY_SOURCE, status=status)
 
@@ -44,7 +44,7 @@ def run_policy_filter(
             if alive:
 
                 # print(
-                #     f"[{gettimestamp()}] PolicyEval > processed user received from {sender}!",
+                #     f"[{gettimestamp()}] PolicyEval > processed user batch received from {sender}!",
                 #     flush=True,
                 # )
 
@@ -71,7 +71,7 @@ def run_policy_filter(
                     status=status,
                     srank=rank,
                     srole="policy_evaluator",
-                    pname="PolicyMngr (crashed)",
+                    pname="PolicyEval (crashed)",
                 )
 
             print(f"[{gettimestamp()}] PolicyEval >> entering barrier...", flush=True)

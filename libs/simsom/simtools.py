@@ -14,9 +14,13 @@ MINIMUM_REQUIRED_ATTRIBS = {"uid", "utype", "postperday", "qualitydistr"}
 QUALITYDISTR = "(0.5, 0.15, 0, 1)"
 
 
-def generate_post_per_day(min_cap=0, max_cap=120):
-    value = np.random.lognormal(mean=0.8, sigma=0.9)
-    return max(min_cap, min(int(np.round(value)), max_cap))
+# def generate_post_per_day(mean=-0.5, sigma=1.2, min_cap=0, max_cap=30):
+#     value = np.random.lognormal(mean=mean, sigma=sigma)
+#     return max(min_cap, min(int(np.round(value)), max_cap))
+
+def generate_post_per_day(mean=-1.00, sigma=0.9, max_cap=50):
+    value = np.random.lognormal(mean=mean, sigma=sigma)
+    return min(value, max_cap)
 
 
 def read_empirical_network(file):
@@ -30,16 +34,19 @@ def read_empirical_network(file):
         net = _delete_unused_attributes(
             raw_net, desire_attribs=MINIMUM_REQUIRED_ATTRIBS
         )
+
+        return net
+
     except Exception as e:
         print("Exception when reading network")
         print(e.args)
-    return net
 
 
 def _delete_unused_attributes(net, desire_attribs):
     for attrib in net.vs.attributes():
         if attrib not in desire_attribs:
             del net.vs[attrib]
+
     return net
 
 
@@ -57,6 +64,7 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
         graph = read_empirical_network(file)
     else:
         if net_size <= k_out + 1:  # if super small just return a clique
+
             return ig.Graph.Full(net_size, directed=True)
 
         graph = ig.Graph.Full(k_out, directed=True)
@@ -74,20 +82,23 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
             friends += random.sample(
                 range(graph.vcount()), k_out - 1 - n_random_friends
             )
+
             graph.add_vertex(n)
             edges = [(n, f) for f in friends]
             graph.add_edges(edges)
+
         for v in graph.vs:
             v["uid"] = f"u{v.index}"
             # v["utype"] = random.choice(["lurker", "normal user"])
             v["utype"] = "normal user"
             # v["postperday"] = 0 if v["utype"] == "lurker" else random.uniform(0, 50)
-            ppd = generate_post_per_day(max_cap=120)
+            ppd = generate_post_per_day()
             # NOTE: 120 is estimated from Vaccinitaly (307 days)
-            v["postperday"] = 0 if v["utype"] == "lurker" else ppd
+            v["actionperday"] = 0 if v["utype"] == "lurker" else ppd
             v["qualitydistr"] = QUALITYDISTR
 
     users = []
+
     for node in graph.vs:
         # remember link direction is following
         friends = graph.successors(node.index)  # this returns the index of the vertex
@@ -95,12 +106,13 @@ def init_network(file=None, net_size=200, p=0.5, k_out=3) -> dict:
         user_i = User(
             uid=graph.vs[node.index]["uid"],
             user_class=graph.vs[node.index]["utype"],
-            action_per_day=int(graph.vs[node.index]["postperday"]),
+            mean_action_per_day=int(graph.vs[node.index]["actionperday"]),
             quality_params=eval(graph.vs[node.index]["qualitydistr"]),
             friends=["u" + str(u) for u in friends],
             followers=["u" + str(u) for u in followers],
         )
         users.append(user_i)
+
     return users
 
 
